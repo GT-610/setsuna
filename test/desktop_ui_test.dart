@@ -7,6 +7,7 @@ import 'package:setsuna/pages/download_page/components/task_list_item.dart';
 import 'package:setsuna/pages/download_page/components/task_toolbar.dart';
 import 'package:setsuna/pages/download_page/enums.dart';
 import 'package:setsuna/pages/download_page/models/download_task.dart';
+import 'package:setsuna/widgets/desktop_page_header.dart';
 
 void main() {
   Widget buildLocalized(Widget child, {double width = 800}) {
@@ -51,6 +52,30 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(const ValueKey('task-search-field')), findsOneWidget);
+  });
+
+  testWidgets('desktop page header keeps actions visible at minimum width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildLocalized(
+        DesktopPageHeader(
+          title: 'Instances',
+          actions: [
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.add),
+              label: const Text('Add instance'),
+            ),
+          ],
+        ),
+        width: 592,
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Instances'), findsOneWidget);
+    expect(find.text('Add instance'), findsOneWidget);
   });
 
   testWidgets('desktop filter sidebar selects a status filter', (tester) async {

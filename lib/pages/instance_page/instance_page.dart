@@ -5,6 +5,7 @@ import '../../generated/l10n/l10n.dart';
 import '../../models/aria2_instance.dart';
 import '../../services/download_data_service.dart';
 import '../../services/instance_manager.dart';
+import '../../widgets/desktop_page_header.dart';
 import '../remote_instance_settings_page.dart';
 import '../remote_instance_status_page.dart';
 import 'components/instance_card.dart';
@@ -48,12 +49,20 @@ class _InstancePageState extends State<InstancePage>
     super.build(context);
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.instance)),
-      body: _buildInstanceListView(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openInstanceDialog(),
-        tooltip: l10n.addInstanceTooltip,
-        child: const Icon(Icons.add),
+      body: Column(
+        children: [
+          DesktopPageHeader(
+            title: l10n.instance,
+            actions: [
+              FilledButton.icon(
+                onPressed: () => _openInstanceDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(l10n.addInstanceTooltip),
+              ),
+            ],
+          ),
+          Expanded(child: _buildInstanceListView()),
+        ],
       ),
     );
   }
@@ -90,22 +99,39 @@ class _InstancePageState extends State<InstancePage>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: instances.length,
-      itemBuilder: (context, index) {
-        final instance = instances[index];
-        return InstanceCard(
-          instance: instance,
-          isSelected: _selectedInstance?.id == instance.id,
-          isChecking: _isChecking,
-          onSelect: _handleSelectInstance,
-          onCheckStatus: _handleCheckStatus,
-          onToggleConnection: _handleToggleConnection,
-          onEdit: _handleEditInstance,
-          onDelete: _handleDeleteInstance,
-          onOpenRemoteSettings: _handleOpenRemoteSettings,
-          onOpenRemoteStatus: _handleOpenRemoteStatus,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final columns = constraints.maxWidth >= 1000 ? 2 : 1;
+        final cardWidth = columns == 1
+            ? constraints.maxWidth - 32
+            : (constraints.maxWidth - 32 - spacing) / 2;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: instances
+                .map((instance) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: InstanceCard(
+                      instance: instance,
+                      isSelected: _selectedInstance?.id == instance.id,
+                      isChecking: _isChecking,
+                      onSelect: _handleSelectInstance,
+                      onCheckStatus: _handleCheckStatus,
+                      onToggleConnection: _handleToggleConnection,
+                      onEdit: _handleEditInstance,
+                      onDelete: _handleDeleteInstance,
+                      onOpenRemoteSettings: _handleOpenRemoteSettings,
+                      onOpenRemoteStatus: _handleOpenRemoteStatus,
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
         );
       },
     );

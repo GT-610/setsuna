@@ -16,6 +16,7 @@ import '../../services/startup_integration_service.dart';
 import '../../services/update_check_service.dart';
 import '../../utils/logging.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/desktop_page_header.dart';
 import '../../widgets/section_title.dart';
 import '../../widgets/sized_loading.dart';
 import '../components/file_category_editor_dialog.dart';
@@ -120,36 +121,53 @@ class _SettingsPageState extends State<SettingsPage>
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.settings),
-        bottom: TabBar(
-          controller: _tabController,
-          dividerHeight: 0,
-          tabAlignment: TabAlignment.center,
-          isScrollable: true,
-          tabs: _SettingsTab.values
-              .map((tab) => Tab(text: _tabTitle(tab, l10n)))
-              .toList(growable: false),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildTabView([
-              _buildBehaviorSection(settings, l10n),
-              _buildSpeedSection(settings, l10n),
-              _buildAppearanceSection(settings, l10n),
-              _buildMaintenanceSection(l10n),
-            ]),
-            _buildTabView([
-              _buildDesktopShellSection(settings, l10n),
-              if (Platform.isWindows) _buildProtocolSection(settings, l10n),
-            ]),
-            _buildAboutTabView(l10n),
-          ],
-        ),
+      body: Column(
+        children: [
+          DesktopPageHeader(title: l10n.settings),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              dividerHeight: 0,
+              tabAlignment: TabAlignment.start,
+              isScrollable: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              tabs: _SettingsTab.values
+                  .map((tab) => Tab(text: _tabTitle(tab, l10n)))
+                  .toList(growable: false),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTabView([
+                    _buildBehaviorSection(settings, l10n),
+                    _buildSpeedSection(settings, l10n),
+                    _buildAppearanceSection(settings, l10n),
+                    _buildMaintenanceSection(l10n),
+                  ]),
+                  _buildTabView([
+                    _buildDesktopShellSection(settings, l10n),
+                    if (Platform.isWindows)
+                      _buildProtocolSection(settings, l10n),
+                  ]),
+                  _buildAboutTabView(l10n),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

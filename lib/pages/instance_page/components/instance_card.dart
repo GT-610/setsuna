@@ -316,16 +316,22 @@ class _InstanceCardState extends State<InstanceCard> {
         : l10n.versionWillAppearAfterConnection;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.1),
-      surfaceTintColor: colorScheme.surface,
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: widget.isSelected
+          ? colorScheme.secondaryContainer.withValues(alpha: 0.45)
+          : colorScheme.surfaceContainerLowest,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide.none,
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: widget.isSelected
+              ? colorScheme.primary
+              : colorScheme.outlineVariant,
+        ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         onTap: () => widget.onSelect(widget.instance),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -333,49 +339,57 @@ class _InstanceCardState extends State<InstanceCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _getStatusColor(
-                            widget.instance.status,
-                            colorScheme,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _getStatusColor(
+                              widget.instance.status,
+                              colorScheme,
+                            ),
+                          ),
+                          child: _getStatusIcon(widget.instance.status),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            widget.instance.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        child: _getStatusIcon(widget.instance.status),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        widget.instance.name,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(
-                          widget.instance.type == InstanceType.builtin
-                              ? l10n.builtin
-                              : l10n.remote,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        backgroundColor:
+                        const SizedBox(width: 8),
+                        Chip(
+                          label: Text(
                             widget.instance.type == InstanceType.builtin
-                            ? colorScheme.primary.withValues(alpha: 0.2)
-                            : colorScheme.surfaceContainerHighest,
-                        labelStyle: TextStyle(
-                          color: widget.instance.type == InstanceType.builtin
-                              ? colorScheme.primary
-                              : null,
+                                ? l10n.builtin
+                                : l10n.remote,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          backgroundColor:
+                              widget.instance.type == InstanceType.builtin
+                              ? colorScheme.primary.withValues(alpha: 0.2)
+                              : colorScheme.surfaceContainerHighest,
+                          labelStyle: TextStyle(
+                            color: widget.instance.type == InstanceType.builtin
+                                ? colorScheme.primary
+                                : null,
+                          ),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
                         ),
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 10),
                   _getStatusChip(context, widget.instance.status, colorScheme),
                 ],
               ),

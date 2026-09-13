@@ -16,11 +16,13 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       clipBehavior: clipBehavior,
       color: color,
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius ?? BorderRadius.circular(13),
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
       elevation: 0,
       child: child,

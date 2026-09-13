@@ -8,9 +8,13 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 23, bottom: 17),
-      child: Center(
-        child: Text(text, style: const TextStyle(color: Colors.grey)),
+      padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
