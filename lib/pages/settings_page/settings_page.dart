@@ -25,6 +25,20 @@ import './components/speed_limit_card.dart';
 
 enum _SettingsTab { global, system, about }
 
+class _SettingsTabController extends TabController {
+  _SettingsTabController({required super.length, required super.vsync})
+    : super(animationDuration: const Duration(milliseconds: 677));
+
+  @override
+  void animateTo(int value, {Duration? duration, Curve curve = Curves.ease}) {
+    super.animateTo(
+      value,
+      duration: duration ?? const Duration(milliseconds: 677),
+      curve: Curves.fastLinearToSlowEaseIn,
+    );
+  }
+}
+
 class _SettingsSection {
   const _SettingsSection({required this.title, required this.child});
 
@@ -49,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage>
   String _versionLabel = '';
   bool _isLoading = true;
   bool _isCheckingForUpdates = false;
-  late final TabController _tabController = TabController(
+  late final TabController _tabController = _SettingsTabController(
     length: _SettingsTab.values.length,
     vsync: this,
   );
