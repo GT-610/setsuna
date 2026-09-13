@@ -230,7 +230,11 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   Widget _buildSettingsGroup(List<Widget> children) {
-    return Column(children: children);
+    return Column(
+      children: [
+        for (final child in children) ...[const SizedBox(height: 4), child],
+      ],
+    );
   }
 
   _SettingsSection _buildBehaviorSection(
@@ -684,6 +688,8 @@ class _SettingsPageState extends State<SettingsPage>
   }) {
     return AppCard(
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minVerticalPadding: 0,
         title: DefaultTextStyle.merge(
           style: Theme.of(context).textTheme.bodyLarge,
           child: title,
@@ -803,6 +809,8 @@ class _SettingsPageState extends State<SettingsPage>
   }) {
     return AppCard(
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minVerticalPadding: 0,
         title: Text(title),
         subtitle: subtitle == null
             ? null
