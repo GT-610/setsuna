@@ -979,77 +979,51 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
       const SettingsPage(),
     ];
     final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: Row(
+      body: Column(
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-            ),
-            child: NavigationRail(
-              extended: true,
-              minExtendedWidth: 208,
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: _onDestinationSelected,
-              groupAlignment: -1,
-              leading: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 22),
-                child: SizedBox(
-                  width: 176,
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          kAppLogoAssetPath,
-                          width: 32,
-                          height: 32,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          kAppName,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              destinations: [
-                NavigationRailDestination(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  icon: const Icon(Icons.download_outlined),
-                  selectedIcon: const Icon(Icons.download),
-                  label: Text(l10n.download),
-                ),
-                NavigationRailDestination(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  icon: const Icon(Icons.dns_outlined),
-                  selectedIcon: const Icon(Icons.dns),
-                  label: Text(l10n.instance),
-                ),
-                NavigationRailDestination(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  icon: const Icon(Icons.settings_outlined),
-                  selectedIcon: const Icon(Icons.settings),
-                  label: Text(l10n.settings),
-                ),
-              ],
-            ),
-          ),
           Expanded(
-            child: Column(
+            child: Row(
               children: [
+                NavigationRail(
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: _onDestinationSelected,
+                  labelType: NavigationRailLabelType.selected,
+                  backgroundColor: colorScheme.surfaceContainer,
+                  indicatorColor: colorScheme.surfaceContainerHighest,
+                  leading: Container(
+                    padding: const EdgeInsets.only(top: 16, bottom: 8),
+                    alignment: Alignment.center,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        kAppLogoAssetPath,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  destinations: [
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.download_outlined),
+                      selectedIcon: const Icon(Icons.download),
+                      label: Text(l10n.download),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.settings_remote_outlined),
+                      selectedIcon: const Icon(Icons.settings_remote),
+                      label: Text(l10n.instance),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.settings_outlined),
+                      selectedIcon: const Icon(Icons.settings),
+                      label: Text(l10n.settings),
+                    ),
+                  ],
+                ),
                 Expanded(
                   child: PageView.builder(
                     controller: _pageController,
@@ -1061,10 +1035,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
                     },
                   ),
                 ),
-                const _StatusBar(),
               ],
             ),
           ),
+          const _StatusBar(),
         ],
       ),
     );
