@@ -4,14 +4,10 @@ class DesktopPageHeader extends StatelessWidget {
   const DesktopPageHeader({
     super.key,
     required this.title,
-    this.leading,
-    this.subtitle,
     this.actions = const [],
   });
 
   final String title;
-  final Widget? leading;
-  final String? subtitle;
   final List<Widget> actions;
 
   @override
@@ -28,32 +24,14 @@ class DesktopPageHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 8)],
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           if (actions.isNotEmpty) ...[
