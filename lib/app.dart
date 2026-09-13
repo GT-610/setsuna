@@ -966,8 +966,8 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     setState(() => _selectedIndex = index);
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 677),
+      curve: Curves.fastLinearToSlowEaseIn,
     );
   }
 
@@ -1029,6 +1029,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
                     controller: _pageController,
                     itemCount: pages.length,
                     physics: const NeverScrollableScrollPhysics(),
+                    scrollDirection: Axis.vertical,
                     itemBuilder: (_, index) => pages[index],
                     onPageChanged: (value) {
                       FocusScope.of(context).unfocus();
