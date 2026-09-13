@@ -108,7 +108,7 @@ class TaskListView extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       itemCount: tasks.length,
       itemBuilder: (context, index) {
         final task = tasks[index];
@@ -123,9 +123,9 @@ class TaskListView extends StatelessWidget {
               onTaskTap(task);
             }
           },
+          onSelectionToggle: () => onTaskSelectionToggle(task),
           onLongPress: () => onTaskLongPress(task),
           isSelected: selectedTaskKeys.contains(task.key),
-          showSelectionControl: selectedTaskKeys.isNotEmpty,
           showProgressBar: showProgressBar,
           onTaskUpdated: onTaskUpdated,
           onOpenDirectory: (task) async {

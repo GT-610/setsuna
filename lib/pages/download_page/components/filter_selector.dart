@@ -2,18 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../generated/l10n/l10n.dart';
 import '../enums.dart';
-import 'task_action_dialogs.dart';
 
 class FilterSelector extends StatelessWidget {
-  final CategoryType currentCategoryType;
-  final FilterOption selectedFilter;
-  final String? selectedInstanceId;
-  final Map<String, String> instanceNames;
-  final List<String> instanceIds;
-  final ValueChanged<CategoryType> onCategoryChanged;
-  final ValueChanged<FilterOption> onFilterChanged;
-  final ValueChanged<String?> onInstanceSelected;
-
   const FilterSelector({
     super.key,
     required this.currentCategoryType,
@@ -26,252 +16,202 @@ class FilterSelector extends StatelessWidget {
     required this.onInstanceSelected,
   });
 
+  final CategoryType currentCategoryType;
+  final FilterOption selectedFilter;
+  final String? selectedInstanceId;
+  final Map<String, String> instanceNames;
+  final List<String> instanceIds;
+  final ValueChanged<CategoryType> onCategoryChanged;
+  final ValueChanged<FilterOption> onFilterChanged;
+  final ValueChanged<String?> onInstanceSelected;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.surfaceContainerHighest),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 124,
-            child: FilledButton.tonal(
-              onPressed: () => _showCategoryDialog(context),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                minimumSize: const Size(124, 40),
-                maximumSize: const Size(124, 40),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _getCurrentCategoryText(l10n),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
+    return SizedBox(
+      width: 190,
+      child: ColoredBox(
+        color: colorScheme.surfaceContainerLowest,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 16),
+          children: [
+            _FilterItem(
+              icon: Icons.inbox_outlined,
+              label: l10n.allTasksLabel,
+              selected: currentCategoryType == CategoryType.all,
+              onTap: () => onCategoryChanged(CategoryType.all),
             ),
-          ),
-          if (currentCategoryType != CategoryType.all) ...[
-            const SizedBox(width: 12),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: currentCategoryType == CategoryType.byInstance
-                      ? [
-                          FilterChip(
-                            label: Text(l10n.allInstances),
-                            selected: selectedInstanceId == null,
-                            onSelected: (_) => onInstanceSelected(null),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          ...instanceIds.map((instanceId) {
-                            final isSelected = selectedInstanceId == instanceId;
-                            final instanceColor = colorScheme.tertiary;
-                            final instanceName =
-                                instanceNames[instanceId] ??
-                                l10n.unknownInstance;
-
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: FilterChip(
-                                label: Text(
-                                  instanceName,
-                                  style: TextStyle(color: instanceColor),
-                                ),
-                                selected: isSelected,
-                                onSelected: (selected) {
-                                  onInstanceSelected(
-                                    selected ? instanceId : null,
-                                  );
-                                },
-                                selectedColor: instanceColor.withValues(
-                                  alpha: 0.1,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                            );
-                          }),
-                        ]
-                      : _getFilterOptionsForCurrentCategory().map((option) {
-                          final isSelected = selectedFilter == option;
-                          final filterColor = _getFilterColor(
-                            option,
-                            colorScheme,
-                          );
-
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: FilterChip(
-                              label: Text(
-                                _getFilterText(l10n, option),
-                                style: TextStyle(color: filterColor),
-                              ),
-                              selected: isSelected,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  onFilterChanged(option);
-                                }
-                              },
-                              selectedColor: filterColor.withValues(alpha: 0.1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                ),
-              ),
+            _FilterSectionLabel(label: l10n.byStatus),
+            _FilterItem(
+              icon: Icons.downloading_outlined,
+              label: l10n.downloading,
+              selected:
+                  currentCategoryType == CategoryType.byStatus &&
+                  selectedFilter == FilterOption.active,
+              onTap: () =>
+                  _selectFilter(CategoryType.byStatus, FilterOption.active),
             ),
+            _FilterItem(
+              icon: Icons.schedule_outlined,
+              label: l10n.waiting,
+              selected:
+                  currentCategoryType == CategoryType.byStatus &&
+                  selectedFilter == FilterOption.waiting,
+              onTap: () =>
+                  _selectFilter(CategoryType.byStatus, FilterOption.waiting),
+            ),
+            _FilterItem(
+              icon: Icons.task_alt_outlined,
+              label: l10n.stoppedCompleted,
+              selected:
+                  currentCategoryType == CategoryType.byStatus &&
+                  selectedFilter == FilterOption.stopped,
+              onTap: () =>
+                  _selectFilter(CategoryType.byStatus, FilterOption.stopped),
+            ),
+            _FilterSectionLabel(label: l10n.byType),
+            _FilterItem(
+              icon: Icons.computer_outlined,
+              label: l10n.builtin,
+              selected:
+                  currentCategoryType == CategoryType.byType &&
+                  selectedFilter == FilterOption.local,
+              onTap: () =>
+                  _selectFilter(CategoryType.byType, FilterOption.local),
+            ),
+            _FilterItem(
+              icon: Icons.cloud_outlined,
+              label: l10n.remote,
+              selected:
+                  currentCategoryType == CategoryType.byType &&
+                  selectedFilter == FilterOption.remote,
+              onTap: () =>
+                  _selectFilter(CategoryType.byType, FilterOption.remote),
+            ),
+            _FilterSectionLabel(label: l10n.byInstance),
+            _FilterItem(
+              icon: Icons.dns_outlined,
+              label: l10n.allInstances,
+              selected:
+                  currentCategoryType == CategoryType.byInstance &&
+                  selectedInstanceId == null,
+              onTap: () => _selectInstance(null),
+            ),
+            ...instanceIds.map((instanceId) {
+              final name = instanceNames[instanceId] ?? l10n.unknownInstance;
+              return _FilterItem(
+                icon: Icons.circle,
+                iconSize: 8,
+                label: name,
+                tooltip: name,
+                selected:
+                    currentCategoryType == CategoryType.byInstance &&
+                    selectedInstanceId == instanceId,
+                onTap: () => _selectInstance(instanceId),
+              );
+            }),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  void _showCategoryDialog(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(l10n.chooseCategory),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+  void _selectFilter(CategoryType category, FilterOption filter) {
+    if (currentCategoryType != category) {
+      onCategoryChanged(category);
+    }
+    onFilterChanged(filter);
+  }
+
+  void _selectInstance(String? instanceId) {
+    if (currentCategoryType != CategoryType.byInstance) {
+      onCategoryChanged(CategoryType.byInstance);
+    }
+    onInstanceSelected(instanceId);
+  }
+}
+
+class _FilterSectionLabel extends StatelessWidget {
+  const _FilterSectionLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 5),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterItem extends StatelessWidget {
+  const _FilterItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.iconSize = 18,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final double iconSize;
+  final String label;
+  final String? tooltip;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = selected
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurfaceVariant;
+    final item = Material(
+      color: selected ? colorScheme.secondaryContainer : Colors.transparent,
+      borderRadius: BorderRadius.circular(7),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
             children: [
-              TaskActionDialogs.buildDialogOption(
-                context,
-                l10n.allTasksLabel,
-                onTap: () {
-                  onCategoryChanged(CategoryType.all);
-                  Navigator.pop(context);
-                },
+              SizedBox(
+                width: 20,
+                child: Icon(icon, size: iconSize, color: foreground),
               ),
-              const SizedBox(height: 8),
-              TaskActionDialogs.buildDialogOption(
-                context,
-                l10n.byStatus,
-                onTap: () {
-                  onCategoryChanged(CategoryType.byStatus);
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 8),
-              TaskActionDialogs.buildDialogOption(
-                context,
-                l10n.byType,
-                onTap: () {
-                  onCategoryChanged(CategoryType.byType);
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 8),
-              TaskActionDialogs.buildDialogOption(
-                context,
-                l10n.byInstance,
-                onTap: () {
-                  onCategoryChanged(CategoryType.byInstance);
-                  Navigator.pop(context);
-                },
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
-  }
 
-  String _getCurrentCategoryText(AppLocalizations l10n) {
-    switch (currentCategoryType) {
-      case CategoryType.all:
-        return l10n.allTasksLabel;
-      case CategoryType.byStatus:
-        return l10n.byStatus;
-      case CategoryType.byType:
-        return l10n.byType;
-      case CategoryType.byInstance:
-        return l10n.byInstance;
+    if (tooltip == null) {
+      return item;
     }
-  }
-
-  List<FilterOption> _getFilterOptionsForCurrentCategory() {
-    switch (currentCategoryType) {
-      case CategoryType.byStatus:
-        return [
-          FilterOption.active,
-          FilterOption.waiting,
-          FilterOption.stopped,
-        ];
-      case CategoryType.byType:
-        return [FilterOption.local, FilterOption.remote];
-      case CategoryType.byInstance:
-        return [FilterOption.instance];
-      case CategoryType.all:
-        return [];
-    }
-  }
-
-  String _getFilterText(AppLocalizations l10n, FilterOption filter) {
-    switch (filter) {
-      case FilterOption.all:
-        return l10n.filterAll;
-      case FilterOption.active:
-        return l10n.downloading;
-      case FilterOption.waiting:
-        return l10n.waiting;
-      case FilterOption.stopped:
-        return l10n.stoppedCompleted;
-      case FilterOption.local:
-        return l10n.builtin;
-      case FilterOption.remote:
-        return l10n.remote;
-      case FilterOption.instance:
-        return l10n.instance;
-    }
-  }
-
-  Color _getFilterColor(FilterOption filter, ColorScheme colorScheme) {
-    switch (filter) {
-      case FilterOption.all:
-        return colorScheme.primaryContainer;
-      case FilterOption.active:
-        return colorScheme.primary;
-      case FilterOption.waiting:
-        return colorScheme.secondary;
-      case FilterOption.stopped:
-        return colorScheme.errorContainer;
-      case FilterOption.local:
-        return colorScheme.primary;
-      case FilterOption.remote:
-        return colorScheme.secondary;
-      case FilterOption.instance:
-        return colorScheme.tertiary;
-    }
+    return Tooltip(message: tooltip!, child: item);
   }
 }
