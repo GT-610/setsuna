@@ -775,7 +775,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
       await _pageController.animateToPage(
         0,
         duration: const Duration(milliseconds: 677),
-        curve: Curves.linear,
+        curve: Curves.fastLinearToSlowEaseIn,
       );
     }
 
@@ -969,7 +969,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 677),
-      curve: Curves.linear,
+      curve: Curves.fastLinearToSlowEaseIn,
     );
   }
 
