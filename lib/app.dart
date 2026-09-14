@@ -1051,8 +1051,26 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: const _StatusBarContent(),
+    );
+  }
+}
+
+class _StatusBarContent extends StatelessWidget {
+  const _StatusBarContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final summary = context.select<DownloadDataService, TaskSummary>(
       (service) => service.taskSummary,
     );
@@ -1063,57 +1081,49 @@ class _StatusBar extends StatelessWidget {
       (manager) => manager.getConnectedInstances().length,
     );
 
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
-      ),
-      child: Row(
-        children: [
-          _StatusBarItem(
-            icon: connectedCount == 0
-                ? Icons.cloud_off_outlined
-                : Icons.cloud_done_outlined,
-            label: connectedCount == 0
-                ? l10n.notConnected
-                : '${l10n.connected}: $connectedCount',
-          ),
-          const _StatusBarDivider(),
-          Tooltip(
-            message: l10n.speedCapsuleTooltip,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(4),
-              onTap: () => showQuickSpeedLimitDialog(context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.speed, size: 15),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${l10n.downloadShort} ${formatSpeed(summary.speed)}  '
-                      '${l10n.uploadShort} ${formatSpeed(uploadSpeed)}',
-                    ),
-                  ],
-                ),
+    return Row(
+      children: [
+        _StatusBarItem(
+          icon: connectedCount == 0
+              ? Icons.cloud_off_outlined
+              : Icons.cloud_done_outlined,
+          label: connectedCount == 0
+              ? l10n.notConnected
+              : '${l10n.connected}: $connectedCount',
+        ),
+        const _StatusBarDivider(),
+        Tooltip(
+          message: l10n.speedCapsuleTooltip,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: () => showQuickSpeedLimitDialog(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.speed, size: 15),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${l10n.downloadShort} ${formatSpeed(summary.speed)}  '
+                    '${l10n.uploadShort} ${formatSpeed(uploadSpeed)}',
+                  ),
+                ],
               ),
             ),
           ),
-          const Spacer(),
-          _StatusBarItem(
-            icon: Icons.downloading_outlined,
-            label: l10n.activeTasks(summary.active.toString()),
-          ),
-          const _StatusBarDivider(),
-          _StatusBarItem(
-            icon: Icons.schedule_outlined,
-            label: l10n.waitingTasks(summary.waiting.toString()),
-          ),
-        ],
-      ),
+        ),
+        const Spacer(),
+        _StatusBarItem(
+          icon: Icons.downloading_outlined,
+          label: l10n.activeTasks(summary.active.toString()),
+        ),
+        const _StatusBarDivider(),
+        _StatusBarItem(
+          icon: Icons.schedule_outlined,
+          label: l10n.waitingTasks(summary.waiting.toString()),
+        ),
+      ],
     );
   }
 }

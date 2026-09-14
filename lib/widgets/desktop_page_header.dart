@@ -22,33 +22,41 @@ class DesktopPageHeader extends StatelessWidget {
         color: colorScheme.surface,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (actions.isNotEmpty) ...[
-            const SizedBox(width: 16),
-            ..._separateActions(actions),
-          ],
-        ],
-      ),
+      child: _DesktopPageHeaderContent(title: title, actions: actions),
     );
   }
+}
 
-  List<Widget> _separateActions(List<Widget> widgets) {
-    return [
-      for (var index = 0; index < widgets.length; index++) ...[
-        if (index > 0) const SizedBox(width: 8),
-        widgets[index],
+class _DesktopPageHeaderContent extends StatelessWidget {
+  const _DesktopPageHeaderContent({required this.title, required this.actions});
+
+  final String title;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (actions.isNotEmpty) ...[
+          const SizedBox(width: 16),
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            actions[index],
+          ],
+        ],
       ],
-    ];
+    );
   }
 }
