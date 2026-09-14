@@ -34,7 +34,7 @@ class _SettingsTabController extends TabController {
     super.animateTo(
       value,
       duration: duration ?? const Duration(milliseconds: 677),
-      curve: Curves.fastLinearToSlowEaseIn,
+      curve: Curves.linear,
     );
   }
 }
