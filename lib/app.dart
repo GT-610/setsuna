@@ -1054,7 +1054,7 @@ class _StatusBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      height: 34,
+      constraints: const BoxConstraints(minHeight: 34),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
