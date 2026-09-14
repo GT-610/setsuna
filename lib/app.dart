@@ -31,6 +31,7 @@ import 'services/shutdown_service.dart';
 import 'services/tracker_sync_service.dart';
 import 'services/task_bulk_action_service.dart';
 import 'services/update_check_service.dart';
+import 'theme/desktop_theme.dart';
 import 'utils/logging.dart';
 import 'widgets/sized_loading.dart';
 import 'widgets/virtual_window_frame.dart';
@@ -88,19 +89,13 @@ class _ThemeProviderState extends State<_ThemeProvider> {
         showCaption: display.hideTitleBar,
         child: ClipRect(child: child ?? const SizedBox.shrink()),
       ),
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: display.primaryColor,
-          brightness: Brightness.light,
-        ),
+      theme: buildDesktopTheme(
+        seedColor: display.primaryColor,
+        brightness: Brightness.light,
       ).withWindowsChineseFontFallback,
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: display.primaryColor,
-          brightness: Brightness.dark,
-        ),
+      darkTheme: buildDesktopTheme(
+        seedColor: display.primaryColor,
+        brightness: Brightness.dark,
       ).withWindowsChineseFontFallback,
       themeMode: display.themeMode,
       home: MultiProvider(
@@ -984,8 +979,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
       const SettingsPage(),
     ];
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Column(
@@ -993,7 +987,6 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
           Expanded(
             child: Row(
               children: [
-                // Side navigation rail
                 NavigationRail(
                   selectedIndex: _selectedIndex,
                   onDestinationSelected: _onDestinationSelected,
@@ -1031,12 +1024,12 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
                     ),
                   ],
                 ),
-                // Main content area
                 Expanded(
                   child: PageView.builder(
                     controller: _pageController,
                     itemCount: pages.length,
                     physics: const NeverScrollableScrollPhysics(),
+                    scrollDirection: Axis.vertical,
                     itemBuilder: (_, index) => pages[index],
                     onPageChanged: (value) {
                       FocusScope.of(context).unfocus();
@@ -1046,7 +1039,6 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
               ],
             ),
           ),
-          // Bottom status bar - Material You style
           const _StatusBar(),
         ],
       ),
@@ -1059,65 +1051,116 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 34),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: const _StatusBarContent(),
+    );
+  }
+}
+
+class _StatusBarContent extends StatelessWidget {
+  const _StatusBarContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final summary = context.select<DownloadDataService, TaskSummary>(
       (service) => service.taskSummary,
     );
     final uploadSpeed = context.select<DownloadDataService, int>(
       (service) => service.totalUploadSpeed,
     );
+    final connectedCount = context.select<InstanceManager, int>(
+      (manager) => manager.getConnectedInstances().length,
+    );
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        border: Border(
-          top: BorderSide(color: colorScheme.surfaceContainerHighest),
+    return Row(
+      children: [
+        _StatusBarItem(
+          icon: connectedCount == 0
+              ? Icons.cloud_off_outlined
+              : Icons.cloud_done_outlined,
+          label: connectedCount == 0
+              ? l10n.notConnected
+              : '${l10n.connected}: $connectedCount',
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow,
-            offset: const Offset(0, -1),
-            blurRadius: 3,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Speed capsule: click to edit limits.
-          Tooltip(
-            message: l10n.speedCapsuleTooltip,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => showQuickSpeedLimitDialog(context),
-              child: Chip(
-                avatar: const Icon(Icons.speed, size: 16),
-                label: Text(
-                  '${l10n.downloadShort} ${formatSpeed(summary.speed)}  '
-                  '${l10n.uploadShort} ${formatSpeed(uploadSpeed)}',
-                ),
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        const _StatusBarDivider(),
+        Tooltip(
+          message: l10n.speedCapsuleTooltip,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: () => showQuickSpeedLimitDialog(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.speed, size: 15),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${l10n.downloadShort} ${formatSpeed(summary.speed)}  '
+                    '${l10n.uploadShort} ${formatSpeed(uploadSpeed)}',
+                  ),
+                ],
               ),
             ),
           ),
-          Chip(
-            label: Text(l10n.activeTasks(summary.active.toString())),
-            avatar: const Icon(Icons.task_alt, size: 16),
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          ),
-          Chip(
-            label: Text(l10n.waitingTasks(summary.waiting.toString())),
-            avatar: const Icon(Icons.pending, size: 16),
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          ),
-        ],
-      ),
+        ),
+        const Spacer(),
+        _StatusBarItem(
+          icon: Icons.downloading_outlined,
+          label: l10n.activeTasks(summary.active.toString()),
+        ),
+        const _StatusBarDivider(),
+        _StatusBarItem(
+          icon: Icons.schedule_outlined,
+          label: l10n.waitingTasks(summary.waiting.toString()),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusBarItem extends StatelessWidget {
+  const _StatusBarItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+      ],
+    );
+  }
+}
+
+class _StatusBarDivider extends StatelessWidget {
+  const _StatusBarDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 16,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }

@@ -16,6 +16,7 @@ import '../../services/startup_integration_service.dart';
 import '../../services/update_check_service.dart';
 import '../../utils/logging.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/desktop_page_header.dart';
 import '../../widgets/section_title.dart';
 import '../../widgets/sized_loading.dart';
 import '../components/file_category_editor_dialog.dart';
@@ -23,6 +24,20 @@ import './components/appearance_dialog.dart';
 import './components/speed_limit_card.dart';
 
 enum _SettingsTab { global, system, about }
+
+class _SettingsTabController extends TabController {
+  _SettingsTabController({required super.length, required super.vsync})
+    : super(animationDuration: const Duration(milliseconds: 677));
+
+  @override
+  void animateTo(int value, {Duration? duration, Curve curve = Curves.ease}) {
+    super.animateTo(
+      value,
+      duration: duration ?? const Duration(milliseconds: 677),
+      curve: Curves.fastLinearToSlowEaseIn,
+    );
+  }
+}
 
 class _SettingsSection {
   const _SettingsSection({required this.title, required this.child});
@@ -48,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage>
   String _versionLabel = '';
   bool _isLoading = true;
   bool _isCheckingForUpdates = false;
-  late final TabController _tabController = TabController(
+  late final TabController _tabController = _SettingsTabController(
     length: _SettingsTab.values.length,
     vsync: this,
   );
@@ -120,36 +135,53 @@ class _SettingsPageState extends State<SettingsPage>
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.settings),
-        bottom: TabBar(
-          controller: _tabController,
-          dividerHeight: 0,
-          tabAlignment: TabAlignment.center,
-          isScrollable: true,
-          tabs: _SettingsTab.values
-              .map((tab) => Tab(text: _tabTitle(tab, l10n)))
-              .toList(growable: false),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildTabView([
-              _buildBehaviorSection(settings, l10n),
-              _buildSpeedSection(settings, l10n),
-              _buildAppearanceSection(settings, l10n),
-              _buildMaintenanceSection(l10n),
-            ]),
-            _buildTabView([
-              _buildDesktopShellSection(settings, l10n),
-              if (Platform.isWindows) _buildProtocolSection(settings, l10n),
-            ]),
-            _buildAboutTabView(l10n),
-          ],
-        ),
+      body: Column(
+        children: [
+          DesktopPageHeader(title: l10n.settings),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              dividerHeight: 0,
+              tabAlignment: TabAlignment.start,
+              isScrollable: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              tabs: _SettingsTab.values
+                  .map((tab) => Tab(text: _tabTitle(tab, l10n)))
+                  .toList(growable: false),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTabView([
+                    _buildBehaviorSection(settings, l10n),
+                    _buildSpeedSection(settings, l10n),
+                    _buildAppearanceSection(settings, l10n),
+                    _buildMaintenanceSection(l10n),
+                  ]),
+                  _buildTabView([
+                    _buildDesktopShellSection(settings, l10n),
+                    if (Platform.isWindows)
+                      _buildProtocolSection(settings, l10n),
+                  ]),
+                  _buildAboutTabView(l10n),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -212,7 +244,11 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   Widget _buildSettingsGroup(List<Widget> children) {
-    return Column(children: children);
+    return Column(
+      children: [
+        for (final child in children) ...[const SizedBox(height: 4), child],
+      ],
+    );
   }
 
   _SettingsSection _buildBehaviorSection(
@@ -666,6 +702,8 @@ class _SettingsPageState extends State<SettingsPage>
   }) {
     return AppCard(
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minVerticalPadding: 0,
         title: DefaultTextStyle.merge(
           style: Theme.of(context).textTheme.bodyLarge,
           child: title,
@@ -785,6 +823,8 @@ class _SettingsPageState extends State<SettingsPage>
   }) {
     return AppCard(
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minVerticalPadding: 0,
         title: Text(title),
         subtitle: subtitle == null
             ? null

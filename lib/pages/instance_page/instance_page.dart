@@ -5,6 +5,7 @@ import '../../generated/l10n/l10n.dart';
 import '../../models/aria2_instance.dart';
 import '../../services/download_data_service.dart';
 import '../../services/instance_manager.dart';
+import '../../widgets/desktop_page_header.dart';
 import '../remote_instance_settings_page.dart';
 import '../remote_instance_status_page.dart';
 import 'components/instance_card.dart';
@@ -48,12 +49,20 @@ class _InstancePageState extends State<InstancePage>
     super.build(context);
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.instance)),
-      body: _buildInstanceListView(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openInstanceDialog(),
-        tooltip: l10n.addInstanceTooltip,
-        child: const Icon(Icons.add),
+      body: Column(
+        children: [
+          DesktopPageHeader(
+            title: l10n.instance,
+            actions: [
+              FilledButton.icon(
+                onPressed: () => _openInstanceDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(l10n.addInstanceTooltip),
+              ),
+            ],
+          ),
+          Expanded(child: _buildInstanceListView()),
+        ],
       ),
     );
   }
