@@ -519,17 +519,6 @@ class DownloadPageState extends State<DownloadPage>
     });
   }
 
-  void _clearViewFilters() {
-    setState(() {
-      _searchController.clear();
-      _searchQuery = '';
-      _currentCategoryType = CategoryType.all;
-      _selectedFilter = FilterOption.all;
-      _selectedInstanceId = null;
-      _selectedTaskKeys.clear();
-    });
-  }
-
   void _selectAllVisibleTasks(List<DownloadTask> tasks) {
     setState(() {
       final visibleKeys = tasks.map((t) => t.key).toSet();
@@ -721,9 +710,6 @@ class DownloadPageState extends State<DownloadPage>
                               instanceNames: _instanceNames,
                               hasActiveViewFilters: hasActiveViewFilters,
                               showProgressBar: showProgressBar,
-                              onClearViewFilters: hasActiveViewFilters
-                                  ? _clearViewFilters
-                                  : null,
                               onTaskTap: (task) =>
                                   _showTaskDetails(context, task),
                               onTaskLongPress: _startTaskSelection,

@@ -65,6 +65,13 @@ void main() {
         service.extractEligibleUri('ftp://example.com/file', all),
         'ftp://example.com/file',
       );
+      expect(
+        service.extractEligibleUri(
+          'sftp://example.com/file',
+          ClipboardMonitorService.schemeFtp,
+        ),
+        'sftp://example.com/file',
+      );
     });
 
     test('respects per-scheme masks', () {
@@ -185,10 +192,16 @@ void main() {
       expect(service.takePendingUri(), isNull);
     });
 
-    test('rejects multi-line and unsupported content', () {
+    test('accepts newline-separated supported URIs', () {
       final service = ClipboardMonitorService();
       expect(service.extractEligibleUri('hello world', all), isNull);
-      expect(service.extractEligibleUri('line one\nline two', all), isNull);
+      expect(
+        service.extractEligibleUri(
+          ' https://example.com/one.zip\r\n\nmagnet:?xt=urn:btih:abc ',
+          all,
+        ),
+        'https://example.com/one.zip\nmagnet:?xt=urn:btih:abc',
+      );
       expect(service.extractEligibleUri('some random text', all), isNull);
     });
 
