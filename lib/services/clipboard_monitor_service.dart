@@ -8,8 +8,8 @@ import 'protocol_integration_service.dart';
 
 final _logger = taggedLogger('ClipboardMonitorService');
 
-/// Watches the clipboard for downloadable URIs and exposes them one at a
-/// time through [pendingUri].
+/// Watches the clipboard for downloadable URIs and exposes each clipboard
+/// batch through [pendingUri].
 ///
 /// Includes the classic guards: self-copy suppression (texts the app itself
 /// copied are ignored), oversized-content protection, and per-scheme
@@ -163,32 +163,48 @@ class ClipboardMonitorService with Loggable {
     return data?.text;
   }
 
-  /// Extracts a single-line URI matching an enabled scheme. Returns null for
-  /// multi-URI pastes so users keep control over bulk additions.
+  /// Extracts newline-separated URIs matching enabled schemes.
   @visibleForTesting
   String? extractEligibleUri(String content, int schemes) {
-    final trimmed = content.trim();
-    if (trimmed.isEmpty || trimmed.contains('\n')) {
+    final lines = content
+        .split(RegExp(r'[\r\n]+'))
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) {
       return null;
     }
 
-    final lower = trimmed.toLowerCase();
-    final isHttp = lower.startsWith('http://') || lower.startsWith('https://');
-    final isFtp = lower.startsWith('ftp://') || lower.startsWith('ftps://');
-    final isMagnet = lower.startsWith('magnet:?');
-    final isThunder = lower.startsWith('thunder://');
+    final normalizedUris = <String>[];
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      final isHttp =
+          lower.startsWith('http://') || lower.startsWith('https://');
+      final isFtp = lower.startsWith('ftp://') || lower.startsWith('ftps://');
+      final isMagnet = lower.startsWith('magnet:?');
+      final isThunder = lower.startsWith('thunder://');
+      final schemeEnabled =
+          (isHttp && schemes & schemeHttp != 0) ||
+          (isFtp && schemes & schemeFtp != 0) ||
+          (isMagnet && schemes & schemeMagnet != 0) ||
+          (isThunder && schemes & schemeThunder != 0);
+      if (!schemeEnabled) {
+        continue;
+      }
 
-    final schemeEnabled =
-        (isHttp && schemes & schemeHttp != 0) ||
-        (isFtp && schemes & schemeFtp != 0) ||
-        (isMagnet && schemes & schemeMagnet != 0) ||
-        (isThunder && schemes & schemeThunder != 0);
-    if (!schemeEnabled) {
+      final normalized = ProtocolIntegrationService().normalizeIncomingUri(
+        line,
+      );
+      if (normalized != null) {
+        normalizedUris.add(normalized);
+      }
+    }
+
+    if (normalizedUris.isEmpty) {
       return null;
     }
 
-    // Validate (and decode thunder links) via the protocol integration.
-    return ProtocolIntegrationService().normalizeIncomingUri(trimmed);
+    return normalizedUris.join('\n');
   }
 
   void dispose() {
