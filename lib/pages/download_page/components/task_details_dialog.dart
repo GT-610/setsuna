@@ -32,6 +32,8 @@ class TaskDetailsDialog {
     VoidCallback? onTaskUpdated,
   }) async {
     final outerContext = context;
+    final instanceManager = outerContext.read<InstanceManager>();
+    final downloadDataService = outerContext.read<DownloadDataService>();
 
     showDialog(
       context: outerContext,
@@ -850,12 +852,22 @@ class TaskDetailsDialog {
                                       ],
                                     ),
                                   ),
-                                  TaskDetailsOptionsTab(
-                                    key: ValueKey(
-                                      '${currentTask.instanceId}:${currentTask.id}',
+                                  MultiProvider(
+                                    providers: [
+                                      ChangeNotifierProvider<
+                                        InstanceManager
+                                      >.value(value: instanceManager),
+                                      ChangeNotifierProvider<
+                                        DownloadDataService
+                                      >.value(value: downloadDataService),
+                                    ],
+                                    child: TaskDetailsOptionsTab(
+                                      key: ValueKey(
+                                        '${currentTask.instanceId}:${currentTask.id}',
+                                      ),
+                                      task: currentTask,
+                                      onSaved: onTaskUpdated,
                                     ),
-                                    task: currentTask,
-                                    onSaved: onTaskUpdated,
                                   ),
                                   if (isBtTask)
                                     SingleChildScrollView(
