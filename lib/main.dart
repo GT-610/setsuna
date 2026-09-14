@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app.dart';
@@ -18,10 +20,39 @@ void main(List<String> args) async {
   initializeAppLogging();
 
   final singleInstanceService = SingleInstanceService.instance;
-  if (!await singleInstanceService.acquire()) {
-    return;
+  final singleInstanceResult = await singleInstanceService.acquire();
+  switch (singleInstanceResult) {
+    case SingleInstanceAcquireResult.acquired:
+      await _initializeApplication(args, singleInstanceService);
+    case SingleInstanceAcquireResult.existingInstanceActivated:
+      return;
+    case SingleInstanceAcquireResult.unconfirmedConflict:
+      final logger = taggedLogger('Main');
+      logger.e('Unable to confirm ownership of the single-instance server');
+      runApp(
+        _SingleInstanceStartupErrorApp(
+          onRetry: () async {
+            final retryResult = await singleInstanceService.acquire();
+            switch (retryResult) {
+              case SingleInstanceAcquireResult.acquired:
+                await _initializeApplication(args, singleInstanceService);
+              case SingleInstanceAcquireResult.existingInstanceActivated:
+                exit(0);
+              case SingleInstanceAcquireResult.unconfirmedConflict:
+                throw StateError(
+                  'Unable to confirm ownership of the single-instance server',
+                );
+            }
+          },
+        ),
+      );
   }
+}
 
+Future<void> _initializeApplication(
+  List<String> args,
+  SingleInstanceService singleInstanceService,
+) async {
   await AppPaths.initialize();
 
   final logger = taggedLogger('Main');
@@ -68,4 +99,102 @@ void main(List<String> args) async {
 
   // Run the application
   runApp(MyApp(initialSettings: settings));
+}
+
+class _SingleInstanceStartupErrorApp extends StatefulWidget {
+  const _SingleInstanceStartupErrorApp({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  State<_SingleInstanceStartupErrorApp> createState() =>
+      _SingleInstanceStartupErrorAppState();
+}
+
+class _SingleInstanceStartupErrorAppState
+    extends State<_SingleInstanceStartupErrorApp> {
+  bool _isRetrying = false;
+  String? _retryError;
+
+  Future<void> _retry() async {
+    if (_isRetrying) {
+      return;
+    }
+
+    setState(() {
+      _isRetrying = true;
+      _retryError = null;
+    });
+    try {
+      await widget.onRetry();
+    } catch (error, stackTrace) {
+      taggedLogger('Main').e(
+        'Retrying single-instance startup failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        setState(() => _retryError = '$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Setsuna',
+      home: Scaffold(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Setsuna could not start',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Setsuna could not confirm that it owns its single-instance '
+                      'server. Close any conflicting process and try again.',
+                    ),
+                    if (_retryError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _retryError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: _isRetrying ? null : _retry,
+                      icon: _isRetrying
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

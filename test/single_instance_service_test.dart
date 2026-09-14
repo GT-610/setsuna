@@ -13,7 +13,7 @@ void main() {
     addTearDown(primary.release);
     addTearDown(secondary.release);
 
-    expect(await primary.acquire(), isTrue);
+    expect(await primary.acquire(), SingleInstanceAcquireResult.acquired);
     primary.setOnActivate(() async {
       if (!activated.isCompleted) {
         activated.complete();
@@ -22,7 +22,10 @@ void main() {
 
     final samePortSecondary = SingleInstanceService(port: primary.port);
     addTearDown(samePortSecondary.release);
-    expect(await samePortSecondary.acquire(), isFalse);
+    expect(
+      await samePortSecondary.acquire(),
+      SingleInstanceAcquireResult.existingInstanceActivated,
+    );
     await activated.future.timeout(const Duration(seconds: 2));
   });
 
@@ -40,6 +43,9 @@ void main() {
     final service = SingleInstanceService(port: conflictingServer.port);
     addTearDown(service.release);
 
-    expect(await service.acquire(), isFalse);
+    expect(
+      await service.acquire(),
+      SingleInstanceAcquireResult.unconfirmedConflict,
+    );
   });
 }

@@ -4,6 +4,12 @@ import 'dart:io';
 
 import '../utils/logging.dart';
 
+enum SingleInstanceAcquireResult {
+  acquired,
+  existingInstanceActivated,
+  unconfirmedConflict,
+}
+
 /// Coordinates one running Setsuna process per user session.
 class SingleInstanceService with Loggable {
   SingleInstanceService({int port = _DEFAULT_PORT}) : _port = port;
@@ -26,9 +32,9 @@ class SingleInstanceService with Loggable {
 
   int get port => _server?.port ?? _port;
 
-  Future<bool> acquire() async {
+  Future<SingleInstanceAcquireResult> acquire() async {
     if (_server != null) {
-      return true;
+      return SingleInstanceAcquireResult.acquired;
     }
 
     try {
@@ -39,7 +45,7 @@ class SingleInstanceService with Loggable {
       );
       _server = server;
       server.listen(_handleConnection);
-      return true;
+      return SingleInstanceAcquireResult.acquired;
     } on SocketException catch (error, stackTrace) {
       w(
         'Another Setsuna process may already be running',
@@ -47,11 +53,11 @@ class SingleInstanceService with Loggable {
         stackTrace: stackTrace,
       );
       if (await _activatePrimary()) {
-        return false;
+        return SingleInstanceAcquireResult.existingInstanceActivated;
       }
 
       w('Could not confirm the single-instance activation request');
-      return false;
+      return SingleInstanceAcquireResult.unconfirmedConflict;
     }
   }
 
