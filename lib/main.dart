@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'models/settings.dart';
 import 'services/protocol_integration_service.dart';
@@ -7,14 +8,21 @@ import 'services/system_tray_service.dart';
 import 'services/data_migration_service.dart';
 import 'services/core_provisioning_service.dart';
 import 'services/builtin_instance_service.dart';
+import 'services/single_instance_service.dart';
 import 'utils/app_paths.dart';
 import 'utils/logging.dart';
 
 void main(List<String> args) async {
   // Ensure all platform initializations are complete
   WidgetsFlutterBinding.ensureInitialized();
-  await AppPaths.initialize();
   initializeAppLogging();
+
+  final singleInstanceService = SingleInstanceService.instance;
+  if (!await singleInstanceService.acquire()) {
+    return;
+  }
+
+  await AppPaths.initialize();
 
   final logger = taggedLogger('Main');
   try {
@@ -53,6 +61,10 @@ void main(List<String> args) async {
 
   // Initialize window manager
   await WindowManagerService().initialize(hideTitleBar: settings.hideTitleBar);
+  singleInstanceService.setOnActivate(() async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
 
   // Run the application
   runApp(MyApp(initialSettings: settings));

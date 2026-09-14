@@ -31,6 +31,7 @@ import 'services/shutdown_service.dart';
 import 'services/tracker_sync_service.dart';
 import 'services/task_bulk_action_service.dart';
 import 'services/update_check_service.dart';
+import 'services/single_instance_service.dart';
 import 'theme/desktop_theme.dart';
 import 'utils/logging.dart';
 import 'widgets/sized_loading.dart';
@@ -335,6 +336,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     _pendingAutoHideTimer?.cancel();
     _pageController.dispose();
     windowManager.removeListener(this);
+    unawaited(SingleInstanceService.instance.release());
     final systemTrayService = SystemTrayService();
     systemTrayService.setOnShowWindow(null);
     systemTrayService.setOnAddTask(null);
