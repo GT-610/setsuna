@@ -180,7 +180,10 @@ class ClipboardMonitorService with Loggable {
       final lower = line.toLowerCase();
       final isHttp =
           lower.startsWith('http://') || lower.startsWith('https://');
-      final isFtp = lower.startsWith('ftp://') || lower.startsWith('ftps://');
+      final isFtp =
+          lower.startsWith('ftp://') ||
+          lower.startsWith('ftps://') ||
+          lower.startsWith('sftp://');
       final isMagnet = lower.startsWith('magnet:?');
       final isThunder = lower.startsWith('thunder://');
       final schemeEnabled =

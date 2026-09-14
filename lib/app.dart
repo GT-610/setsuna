@@ -336,7 +336,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     _pendingAutoHideTimer?.cancel();
     _pageController.dispose();
     windowManager.removeListener(this);
-    unawaited(SingleInstanceService.instance.release());
+    unawaited(_releaseSingleInstance());
     final systemTrayService = SystemTrayService();
     systemTrayService.setOnShowWindow(null);
     systemTrayService.setOnAddTask(null);
@@ -345,6 +345,18 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     systemTrayService.setOnPauseAll(null);
     systemTrayService.setOnResumeAll(null);
     super.dispose();
+  }
+
+  Future<void> _releaseSingleInstance() async {
+    try {
+      await SingleInstanceService.instance.release();
+    } catch (error, stackTrace) {
+      e(
+        'Failed to release the single-instance server',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   @override

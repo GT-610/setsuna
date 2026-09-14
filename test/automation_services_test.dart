@@ -65,6 +65,13 @@ void main() {
         service.extractEligibleUri('ftp://example.com/file', all),
         'ftp://example.com/file',
       );
+      expect(
+        service.extractEligibleUri(
+          'sftp://example.com/file',
+          ClipboardMonitorService.schemeFtp,
+        ),
+        'sftp://example.com/file',
+      );
     });
 
     test('respects per-scheme masks', () {
