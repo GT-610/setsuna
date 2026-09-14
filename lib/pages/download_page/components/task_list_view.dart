@@ -18,7 +18,6 @@ class TaskListView extends StatelessWidget {
   final VoidCallback onTaskUpdated;
   final bool hasActiveViewFilters;
   final bool showProgressBar;
-  final VoidCallback? onClearViewFilters;
 
   const TaskListView({
     super.key,
@@ -31,7 +30,6 @@ class TaskListView extends StatelessWidget {
     required this.onTaskUpdated,
     required this.hasActiveViewFilters,
     required this.showProgressBar,
-    this.onClearViewFilters,
   });
 
   @override
@@ -95,13 +93,6 @@ class TaskListView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            if (hasActiveViewFilters && onClearViewFilters != null) ...[
-              const SizedBox(height: 16),
-              FilledButton.tonal(
-                onPressed: onClearViewFilters,
-                child: Text(l10n.clear),
-              ),
-            ],
           ],
         ),
       );
