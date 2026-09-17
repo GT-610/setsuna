@@ -107,4 +107,23 @@ void main() {
       'GET https://example.org/files/a.zip failed: 503',
     );
   });
+  for (final message in [
+    '--all-proxy=user:private-proxy@host:8080',
+    '{"Authorization":"Bearer private-proxy"}',
+    "{'Proxy-Authorization': 'Basic private-proxy'}",
+  ]) {
+    test('redacts proxy arguments and structured headers: $message', () async {
+      initializeAppLogging();
+      taggedLogger('Test').e(message);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        DebugLogStore.entries.value.single.message,
+        isNot(contains('private-proxy')),
+      );
+      expect(
+        DebugLogStore.entries.value.single.message,
+        contains('[REDACTED]'),
+      );
+    });
+  }
 }
