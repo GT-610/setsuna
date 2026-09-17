@@ -32,6 +32,8 @@ void main() {
     );
     await settings.loadSettings();
     final service = SettingsService()..initialize(settings);
+    addTearDown(service.dispose);
+    addTearDown(settings.dispose);
 
     final options = service.convertSettingsToRuntimeAria2Options();
 

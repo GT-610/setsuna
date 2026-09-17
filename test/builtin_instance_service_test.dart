@@ -53,7 +53,7 @@ void main() {
       service = BuiltinInstanceService();
     });
 
-    tearDown(() {});
+    tearDown(() => service.dispose());
 
     test('unwraps repository settings snapshots', () {
       final snapshot = service.decodePersistedSettingsSnapshot(
@@ -72,6 +72,7 @@ void main() {
         }),
       );
       await settings.loadSettings();
+      addTearDown(settings.dispose);
 
       service.bindSettings(settings);
 
@@ -81,481 +82,104 @@ void main() {
       expect(instance.downloadDir, 'C:\\Downloads\\Setsuna');
     });
 
-    group('resolveEffectiveDhtListenPort', () {
-      test('returns valid int port', () {
+    final configuration = BuiltinEngineConfiguration({}, AppPaths.instance);
+    test('resolves DHT port defaults, boundaries and persisted types', () {
+      for (final entry in <Object?, int>{
+        null: 26701,
+        0: 26701,
+        -1: 26701,
+        70000: 26701,
+        1: 1,
+        65535: 65535,
+        5000: 5000,
+        '8080': 8080,
+        '  5000  ': 5000,
+        'abc': 26701,
+        '99999': 26701,
+        3.14: 26701,
+      }.entries) {
         expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 5000}),
-          5000,
+          configuration.resolveEffectiveDhtListenPort({
+            'dhtListenPort': entry.key,
+          }),
+          entry.value,
+          reason: '${entry.key}',
         );
-      });
-
-      test('returns default for null', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({}),
-          26701,
-        );
-      });
-
-      test('returns default for zero', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 0}),
-          26701,
-        );
-      });
-
-      test('returns default for negative', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': -1}),
-          26701,
-        );
-      });
-
-      test('returns default for over 65535', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 70000}),
-          26701,
-        );
-      });
-
-      test('accepts boundary value 1', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 1}),
-          1,
-        );
-      });
-
-      test('accepts boundary value 65535', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 65535}),
-          65535,
-        );
-      });
-
-      test('parses valid string port', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': '8080'}),
-          8080,
-        );
-      });
-
-      test('parses string port with whitespace', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': '  5000  '}),
-          5000,
-        );
-      });
-
-      test('returns default for invalid string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 'abc'}),
-          26701,
-        );
-      });
-
-      test('returns default for out-of-range string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': '99999'}),
-          26701,
-        );
-      });
-
-      test('returns default for non-int, non-string type', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveDhtListenPort({'dhtListenPort': 3.14}),
-          26701,
-        );
-      });
+      }
     });
-
-    group('resolveEffectiveBtListenPort', () {
-      test('returns configured port when non-empty', () {
+    test('resolves BT ports and configured paths without losing ranges', () {
+      for (final entry in <Object?, String>{
+        null: '6881-6999',
+        '': '6881-6999',
+        '   ': '6881-6999',
+        '51413': '51413',
+        '6881-6999': '6881-6999',
+        ' 51413 ': '51413',
+      }.entries) {
         expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({'btListenPort': '51413'}),
-          '51413',
+          configuration.resolveEffectiveBtListenPort({
+            'btListenPort': entry.key,
+          }),
+          entry.value,
         );
-      });
-
-      test('returns configured port range', () {
+      }
+      for (final entry in <Object?, String>{
+        null: 'fallback',
+        '': 'fallback',
+        '  ': 'fallback',
+        'custom/path': 'custom/path',
+        ' custom/path ': 'custom/path',
+      }.entries) {
         expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({'btListenPort': '6881-6999'}),
-          '6881-6999',
+          configuration.resolveConfiguredFilePath(entry.key, 'fallback'),
+          entry.value,
         );
-      });
-
-      test('returns default for empty string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({'btListenPort': ''}),
-          '6881-6999',
-        );
-      });
-
-      test('returns default for whitespace-only string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({'btListenPort': '   '}),
-          '6881-6999',
-        );
-      });
-
-      test('returns default for null', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({}),
-          '6881-6999',
-        );
-      });
-
-      test('trims whitespace from configured port', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveEffectiveBtListenPort({'btListenPort': '  51413  '}),
-          '51413',
-        );
-      });
+      }
     });
-
-    group('resolveConfiguredFilePath', () {
-      test('returns configured path when non-empty', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveConfiguredFilePath('/custom/path', '/default/path'),
-          '/custom/path',
-        );
-      });
-
-      test('returns fallback for empty string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveConfiguredFilePath('', '/default/path'),
-          '/default/path',
-        );
-      });
-
-      test('returns fallback for null', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveConfiguredFilePath(null, '/default/path'),
-          '/default/path',
-        );
-      });
-
-      test('returns fallback for whitespace-only string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveConfiguredFilePath('   ', '/default/path'),
-          '/default/path',
-        );
-      });
-
-      test('trims whitespace from configured path', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).resolveConfiguredFilePath('  /custom/path  ', '/default/path'),
-          '/custom/path',
-        );
-      });
+    test('formats persisted speed limits with aria2 units', () {
+      for (final entry in <Object?, String>{
+        null: '0',
+        'abc': '0',
+        0: '0',
+        -100: '0',
+        1024: '1024K',
+        128.5: '128K',
+        '512': '512K',
+      }.entries) {
+        expect(configuration.formatSpeedLimitArg(entry.key), entry.value);
+      }
     });
-
-    group('formatSpeedLimitArg', () {
-      test('returns 0 for zero', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(0),
-          '0',
-        );
-      });
-
-      test('returns 0 for negative', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(-100),
-          '0',
-        );
-      });
-
-      test('formats positive int with K suffix', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(1024),
-          '1024K',
-        );
-      });
-
-      test('formats positive double with K suffix', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(1024.5),
-          '1024K',
-        );
-      });
-
-      test('parses string value', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg('512'),
-          '512K',
-        );
-      });
-
-      test('returns 0 for invalid string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg('abc'),
-          '0',
-        );
-      });
-
-      test('returns 0 for null', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(null),
-          '0',
-        );
-      });
-
-      test('returns 0 for empty string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).formatSpeedLimitArg(''),
-          '0',
-        );
-      });
-    });
-
-    group('effectiveSeedTime', () {
-      test('returns 525600 when keepSeeding is true', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(true, 60),
-          525600,
-        );
-      });
-
-      test('returns 525600 when keepSeeding true regardless of value', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(true, 0),
-          525600,
-        );
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(true, null),
-          525600,
-        );
-      });
-
-      test('returns configured int value when not keeping', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(false, 120),
-          120,
-        );
-      });
-
-      test('returns default 60 for null when not keeping', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(false, null),
-          60,
-        );
-      });
-
-      test('parses string value', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(false, '240'),
-          240,
-        );
-      });
-
-      test('returns default for invalid string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(false, 'abc'),
-          60,
-        );
-      });
-
-      test('converts double to int', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedTime(false, 90.5),
-          90,
-        );
-      });
-    });
-
-    group('effectiveSeedRatio', () {
-      test('returns 0.0 when keepSeeding is true', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(true, 1.0),
-          0.0,
-        );
-      });
-
-      test('returns 0.0 when keepSeeding true regardless of value', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(true, 2.0),
-          0.0,
-        );
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(true, null),
-          0.0,
-        );
-      });
-
-      test('returns configured double value when not keeping', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(false, 2.5),
-          2.5,
-        );
-      });
-
-      test('returns default 1.0 for null when not keeping', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(false, null),
-          1.0,
-        );
-      });
-
-      test('parses string value', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(false, '3.0'),
-          3.0,
-        );
-      });
-
-      test('returns default for invalid string', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(false, 'abc'),
-          1.0,
-        );
-      });
-
-      test('converts int to double', () {
-        expect(
-          BuiltinEngineConfiguration(
-            {},
-            AppPaths.instance,
-          ).effectiveSeedRatio(false, 2),
-          2.0,
-        );
-      });
-    });
+    test(
+      'seeding overrides and persisted numeric fallbacks remain compatible',
+      () {
+        for (final entry in <Object?, int>{
+          null: 60,
+          'abc': 60,
+          120: 120,
+          '90': 90,
+          90.5: 90,
+        }.entries) {
+          expect(
+            configuration.effectiveSeedTime(false, entry.key),
+            entry.value,
+          );
+          expect(configuration.effectiveSeedTime(true, entry.key), 525600);
+        }
+        for (final entry in <Object?, double>{
+          null: 1,
+          'abc': 1,
+          2.5: 2.5,
+          '3.0': 3,
+          2: 2,
+        }.entries) {
+          expect(
+            configuration.effectiveSeedRatio(false, entry.key),
+            entry.value,
+          );
+          expect(configuration.effectiveSeedRatio(true, entry.key), 0);
+        }
+      },
+    );
   });
 
   group('engine hardening helpers', () {
@@ -682,6 +306,7 @@ void main() {
         }),
       );
       await settings.loadSettings();
+      addTearDown(settings.dispose);
       await File(sessionPath).create();
 
       final service = BuiltinInstanceService()..bindSettings(settings);
