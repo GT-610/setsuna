@@ -158,7 +158,7 @@ class Aria2RpcClient with Loggable {
 
         final response = await client
             .post(
-              Uri.parse(_buildRpcUrl()),
+              Uri.parse(instance.rpcUrl),
               headers: buildHttpHeaders(),
               body: jsonEncode(requestBody),
             )
@@ -190,6 +190,13 @@ class Aria2RpcClient with Loggable {
     http.Response response,
     String requestId,
   ) {
+    if (response.statusCode == HttpStatus.unauthorized ||
+        response.statusCode == HttpStatus.forbidden) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw RpcException('aria2 returned HTTP ${response.statusCode}');
+    }
     Object? decoded;
     try {
       decoded = jsonDecode(response.body);
@@ -204,13 +211,8 @@ class Aria2RpcClient with Loggable {
       throw const RpcException('aria2 returned an invalid JSON-RPC response');
     }
     final data = Map<String, dynamic>.from(decoded);
-    if (_isUnauthorizedResponse(data) ||
-        response.statusCode == HttpStatus.unauthorized ||
-        response.statusCode == HttpStatus.forbidden) {
+    if (_isUnauthorizedResponse(data)) {
       throw UnauthorizedException();
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw RpcException('aria2 returned HTTP ${response.statusCode}');
     }
     return _validateRpcResponse(data, requestId);
   }
@@ -328,10 +330,24 @@ class Aria2RpcClient with Loggable {
 
     final generation = ++_connectionGeneration;
     try {
-      final socket = await WebSocket.connect(
-        _buildRpcUrl(),
+      var acceptingConnection = true;
+      final connection = WebSocket.connect(
+        instance.rpcUrl,
         headers: buildHttpHeaders(),
-      ).timeout(_requestTimeout);
+      );
+      unawaited(
+        connection.then<void>((socket) {
+          if (!acceptingConnection) {
+            unawaited(_closeWebSocket(socket));
+          }
+        }, onError: (Object _, StackTrace _) {}),
+      );
+      final WebSocket socket;
+      try {
+        socket = await connection.timeout(_requestTimeout);
+      } finally {
+        acceptingConnection = false;
+      }
       if (_isClosed || generation != _connectionGeneration) {
         await _closeWebSocket(socket);
         throw const ConnectionFailedException();
@@ -549,20 +565,14 @@ class Aria2RpcClient with Loggable {
       if (response.containsKey('result') &&
           response['result'] is List<dynamic>) {
         final results = response['result'] as List<dynamic>;
-        return results.map((item) {
-          try {
-            // Directly judge the content of the item without additional nesting levels
-            final isSuccess = item is List<dynamic>;
-            return {'success': isSuccess, 'data': item};
-          } catch (e, stackTrace) {
-            this.e(
-              'Error processing multicall item for ${instance.name}',
-              error: e,
-              stackTrace: stackTrace,
-            );
-            return {'success': false, 'error': 'Error processing item: $e'};
-          }
-        }).toList();
+        return results
+            .map(
+              (item) => <String, dynamic>{
+                'success': item is List<dynamic>,
+                'data': item,
+              },
+            )
+            .toList();
       }
       e(
         'Received invalid multicall response format from ${instance.name}: $response',
@@ -1073,11 +1083,6 @@ class Aria2RpcClient with Loggable {
 
     requestBody['params'] = requestParams;
     return requestBody;
-  }
-
-  /// Build RPC URL
-  String _buildRpcUrl() {
-    return instance.rpcUrl;
   }
 
   @visibleForTesting
