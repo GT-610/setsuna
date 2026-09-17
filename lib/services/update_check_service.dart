@@ -66,6 +66,11 @@ bool isNewerVersion(String local, String remote) {
 
 /// Checks GitHub Releases for a newer version of Setsuna.
 class UpdateCheckService with Loggable {
+  UpdateCheckService({http.Client? httpClient})
+    : _get = httpClient?.get ?? http.get;
+  final Future<http.Response> Function(Uri, {Map<String, String>? headers})
+  _get;
+
   static const Duration _requestTimeout = Duration(seconds: 10);
   static const Duration _autoCheckInterval = Duration(days: 1);
   static Future<UpdateCheckResult>? _inFlightCheck;
@@ -94,14 +99,12 @@ class UpdateCheckService with Loggable {
       if (info.version == '0.0.0') {
         return const UpdateCheckResult(status: UpdateCheckStatus.selfBuild);
       }
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://api.github.com/repos/$kUpdateCheckRepo/releases/latest',
-            ),
-            headers: const {'Accept': 'application/vnd.github+json'},
-          )
-          .timeout(_requestTimeout);
+      final response = await _get(
+        Uri.parse(
+          'https://api.github.com/repos/$kUpdateCheckRepo/releases/latest',
+        ),
+        headers: const {'Accept': 'application/vnd.github+json'},
+      ).timeout(_requestTimeout);
       if (response.statusCode != 200) {
         return const UpdateCheckResult(status: UpdateCheckStatus.failed);
       }
@@ -109,7 +112,11 @@ class UpdateCheckService with Loggable {
       if (decoded is! Map<String, dynamic>) {
         return const UpdateCheckResult(status: UpdateCheckStatus.failed);
       }
-      final tag = '${decoded['tag_name'] ?? ''}';
+      final rawTag = decoded['tag_name'];
+      if (rawTag is! String || rawTag.trim().isEmpty) {
+        return const UpdateCheckResult(status: UpdateCheckStatus.failed);
+      }
+      final tag = rawTag.trim();
       final body = '${decoded['body'] ?? ''}';
       final htmlUrl = '${decoded['html_url'] ?? ''}';
       final available = tag.isNotEmpty && isNewerVersion(info.version, tag);
