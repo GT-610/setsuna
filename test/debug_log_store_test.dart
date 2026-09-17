@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:setsuna/services/debug_log_store.dart';
@@ -5,7 +6,11 @@ import 'package:setsuna/utils/logging.dart';
 
 void main() {
   setUp(DebugLogStore.clear);
-  tearDown(DebugLogStore.clear);
+  final originalLevel = Logger.root.level;
+  tearDown(() {
+    DebugLogStore.clear();
+    Logger.root.level = originalLevel;
+  });
 
   test('keeps only the newest log entries', () {
     for (var index = 0; index < DebugLogStore.maximumEntries + 5; index++) {
@@ -54,6 +59,52 @@ void main() {
     expect(
       DebugLogStore.entries.value.single.stackTrace,
       'authorization: [REDACTED]',
+    );
+  });
+  test(
+    'redacts URL credentials and sensitive headers in all log fields',
+    () async {
+      final printed = <String>[];
+      await runZoned(
+        () async {
+          initializeAppLogging();
+          taggedLogger('Test').e(
+            'proxy http://alice:private-pass@proxy.example:8080/path',
+            error: 'Cookie: session=private-cookie; other=private-other',
+            stackTrace: StackTrace.fromString('X-API-Key: private-key'),
+          );
+          await Future<void>.delayed(Duration.zero);
+        },
+        zoneSpecification: ZoneSpecification(
+          print: (_, _, _, line) {
+            printed.add(line);
+          },
+        ),
+      );
+      expect(printed, isNotEmpty);
+      final text = DebugLogStore.entries.value.single.plainText;
+      for (final secret in [
+        'alice',
+        'private-pass',
+        'private-cookie',
+        'private-other',
+        'private-key',
+      ]) {
+        expect(text, isNot(contains(secret)));
+        expect(printed.join('\n'), isNot(contains(secret)));
+      }
+      expect(text, contains('http://[REDACTED]@proxy.example:8080/path'));
+      expect(text, contains('[REDACTED]'));
+    },
+  );
+
+  test('retains ordinary URLs and diagnostic text', () async {
+    initializeAppLogging();
+    taggedLogger('Test').w('GET https://example.org/files/a.zip failed: 503');
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      DebugLogStore.entries.value.single.message,
+      'GET https://example.org/files/a.zip failed: 503',
     );
   });
 }

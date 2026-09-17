@@ -138,7 +138,6 @@ class ClipboardMonitorService with Loggable {
 
     // Defensive guards against pathological clipboard contents.
     if (content.length > 100000 || content.split('\n').length > 200) {
-      _logger.fine('Ignored oversized clipboard content');
       return;
     }
 

@@ -457,10 +457,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     if (_isDisposed || !notification.method.startsWith('aria2.on')) {
       return;
     }
-    logger.fine(
-      'Received ${notification.method} for ${instance.name}'
-      '${notification.gid == null ? '' : ' (${notification.gid})'}',
-    );
     final latestInstances = _connectedInstancesProvider?.call();
     if (latestInstances != null) {
       unawaited(refreshTasks(latestInstances));
