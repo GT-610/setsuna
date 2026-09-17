@@ -144,6 +144,46 @@ void main() {
     });
   });
 
+  if (Platform.isWindows) {
+    test(
+      'handles Windows case variants and rejects unrelated UNC targets',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'setsuna-windows-path-',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final file = File(p.join(root.path, 'Case.txt'));
+        await file.writeAsString('remove');
+        final result = await _deleteFile(
+          root.path.toUpperCase(),
+          file.path.toLowerCase(),
+        );
+        expect(result.fileDeletionErrors, isEmpty);
+        expect(await file.exists(), isFalse);
+        final unc = await _deleteFile(
+          root.path,
+          r'\\unrelated-host\share\keep.txt',
+        );
+        expect(unc.hasFileDeletionErrors, isTrue);
+        expect(await root.exists(), isTrue);
+      },
+    );
+  }
+
+  test('recursive directory cleanup does not follow nested links', () async {
+    final root = await Directory.systemTemp.createTemp('setsuna-nested-link-');
+    addTearDown(() => root.delete(recursive: true));
+    final base = await Directory(p.join(root.path, 'base')).create();
+    final directory = await Directory(p.join(base.path, 'download')).create();
+    final outside = await Directory(p.join(root.path, 'outside')).create();
+    final keep = File(p.join(outside.path, 'keep.txt'));
+    await keep.writeAsString('keep');
+    await _directoryLink(p.join(directory.path, 'linked'), outside.path);
+    final result = await _deleteFile(base.path, directory.path);
+    expect(result.fileDeletionErrors, isEmpty);
+    expect(await directory.exists(), isFalse);
+    expect(await keep.readAsString(), 'keep');
+  });
   test('does not delete files when task removal is unconfirmed', () async {
     final root = await Directory.systemTemp.createTemp('setsuna-delete-');
     addTearDown(() => root.delete(recursive: true));
