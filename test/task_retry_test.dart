@@ -1,29 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:setsuna/models/aria2_instance.dart';
 import 'package:setsuna/pages/download_page/enums.dart';
 import 'package:setsuna/pages/download_page/models/download_task.dart';
 import 'package:setsuna/pages/download_page/services/download_task_service.dart';
 import 'package:setsuna/pages/download_page/utils/task_retry.dart';
 import 'package:setsuna/services/aria2_rpc_client.dart';
 
+import 'support/fake_rpc_client.dart';
+
 void main() {
-  late Aria2RpcClient client;
-
-  setUp(() {
-    client = Aria2RpcClient(
-      Aria2Instance(
-        id: 'test',
-        name: 'Test',
-        type: InstanceType.remote,
-        protocol: 'http',
-        host: '127.0.0.1',
-        port: 6800,
-      ),
-    );
-  });
-
-  tearDown(() => client.close());
+  late FakeRpcClient client;
+  setUp(() => client = FakeRpcClient());
 
   DownloadTask task({
     String? infoHash,
@@ -174,7 +161,7 @@ void main() {
       final added = <List<String>>[];
       final outputs = <String?>[];
       var removedOld = false;
-      final result = await DownloadTaskService.retryTaskWithClient(
+      final result = await _retryWithResponses(
         client,
         task(
           files: <Map<String, dynamic>>[
@@ -219,7 +206,7 @@ void main() {
       () async {
         Map<String, dynamic>? submittedOptions;
 
-        await DownloadTaskService.retryTaskWithClient(
+        await _retryWithResponses(
           client,
           task(
             infoHash: 'invalid',
@@ -252,7 +239,7 @@ void main() {
       var removedOld = false;
 
       await expectLater(
-        DownloadTaskService.retryTaskWithClient(
+        _retryWithResponses(
           client,
           task(
             files: <Map<String, dynamic>>[
@@ -302,7 +289,7 @@ void main() {
       var addCount = 0;
 
       await expectLater(
-        DownloadTaskService.retryTaskWithClient(
+        _retryWithResponses(
           client,
           task(
             files: <Map<String, dynamic>>[
@@ -353,7 +340,7 @@ void main() {
         var addCount = 0;
 
         await expectLater(
-          DownloadTaskService.retryTaskWithClient(
+          _retryWithResponses(
             client,
             task(
               files: <Map<String, dynamic>>[
@@ -393,4 +380,24 @@ void main() {
       },
     );
   });
+}
+
+Future<List<String>> _retryWithResponses(
+  FakeRpcClient client,
+  DownloadTask task, {
+  Future<Map<String, dynamic>> Function()? getOptionsOverride,
+  Future<String> Function(List<String>, Map<String, dynamic>)? addUriOverride,
+  Future<String?> Function(String)? getTaskStatusOverride,
+  Future<String> Function(String)? removeTaskOverride,
+  Future<String> Function(String)? removeDownloadResultOverride,
+  Future<bool> Function()? saveSessionOverride,
+}) {
+  client
+    ..options = getOptionsOverride
+    ..add = addUriOverride
+    ..status = getTaskStatusOverride
+    ..remove = removeTaskOverride
+    ..removeResult = removeDownloadResultOverride
+    ..save = saveSessionOverride;
+  return DownloadTaskService.retryTaskWithClient(client, task);
 }
