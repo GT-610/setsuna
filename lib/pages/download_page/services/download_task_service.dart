@@ -695,6 +695,9 @@ class DownloadTaskService with Loggable {
     }
 
     final baseDir = _normalizePath(dir);
+    final resolvedBase = _normalizePath(
+      await Directory(baseDir).resolveSymbolicLinks(),
+    );
     final targets = <String>{};
 
     if (task.files != null && task.files!.isNotEmpty) {
@@ -734,6 +737,14 @@ class DownloadTaskService with Loggable {
           target,
           followLinks: false,
         );
+        if (entityType == FileSystemEntityType.notFound) {
+          continue;
+        }
+        if (p.equals(target, baseDir) ||
+            !await _hasSafeParent(target, resolvedBase)) {
+          failedTargets.add('Skipped path outside base directory: $target');
+          continue;
+        }
         switch (entityType) {
           case FileSystemEntityType.file:
             await File(target).delete();
@@ -768,7 +779,11 @@ class DownloadTaskService with Loggable {
     for (final parent
         in parentDirectories.toList()
           ..sort((left, right) => right.length.compareTo(left.length))) {
-      await _cleanupEmptyDirectories(parent, baseDir);
+      try {
+        await _cleanupEmptyDirectories(parent, baseDir, resolvedBase);
+      } on FileSystemException catch (error) {
+        failedTargets.add('$parent ($error)');
+      }
     }
 
     return failedTargets;
@@ -777,12 +792,13 @@ class DownloadTaskService with Loggable {
   static Future<void> _cleanupEmptyDirectories(
     String startPath,
     String stopAtPath,
+    String resolvedBase,
   ) async {
     var currentPath = _normalizePath(startPath);
     final stopPath = _normalizePath(stopAtPath);
 
     while (_isWithinBaseDirectory(currentPath, stopPath) &&
-        currentPath != stopPath) {
+        !p.equals(currentPath, stopPath)) {
       final directory = Directory(currentPath);
       final entityType = await FileSystemEntity.type(
         currentPath,
@@ -791,13 +807,19 @@ class DownloadTaskService with Loggable {
       if (entityType == FileSystemEntityType.link) {
         break;
       }
-      if (!directory.existsSync()) {
+      if (entityType == FileSystemEntityType.notFound) {
         currentPath = _normalizePath(directory.parent.path);
         continue;
       }
 
-      final children = directory.listSync();
-      if (children.isNotEmpty) {
+      if (!await _hasSafeParent(currentPath, resolvedBase) ||
+          !_isWithinBaseDirectory(
+            await directory.resolveSymbolicLinks(),
+            resolvedBase,
+          )) {
+        break;
+      }
+      if (!await directory.list(followLinks: false).isEmpty) {
         break;
       }
 
@@ -806,18 +828,16 @@ class DownloadTaskService with Loggable {
     }
   }
 
-  static bool _isWithinBaseDirectory(String targetPath, String baseDirPath) {
-    final normalizedTarget = _normalizePath(targetPath);
-    final normalizedBase = _normalizePath(baseDirPath);
-    return normalizedTarget == normalizedBase ||
-        normalizedTarget.startsWith('$normalizedBase${Platform.pathSeparator}');
+  static Future<bool> _hasSafeParent(String target, String resolvedBase) async {
+    final parent = await Directory(p.dirname(target)).resolveSymbolicLinks();
+    return _isWithinBaseDirectory(parent, resolvedBase);
   }
 
-  static String _normalizePath(String path) {
-    var normalized = p.canonicalize(p.absolute(path));
-    if (normalized.length > 1 && normalized.endsWith(Platform.pathSeparator)) {
-      normalized = normalized.substring(0, normalized.length - 1);
-    }
-    return Platform.isWindows ? normalized.toLowerCase() : normalized;
+  static bool _isWithinBaseDirectory(String targetPath, String baseDirPath) {
+    final target = _normalizePath(targetPath);
+    final base = _normalizePath(baseDirPath);
+    return p.equals(target, base) || p.isWithin(base, target);
   }
+
+  static String _normalizePath(String path) => p.normalize(p.absolute(path));
 }

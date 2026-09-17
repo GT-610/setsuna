@@ -103,51 +103,45 @@ void main() {
       },
     );
 
-    test(
-      'deletes a directory symlink without following it',
-      () async {
-        final tempRoot = await Directory.systemTemp.createTemp(
-          'download-task-service-link-',
-        );
-        addTearDown(() => tempRoot.deleteSync(recursive: true));
-        final baseDir = Directory(p.join(tempRoot.path, 'base'))..createSync();
-        final outsideDir = Directory(p.join(tempRoot.path, 'outside'))
-          ..createSync();
-        final outsideFile = File(p.join(outsideDir.path, 'keep.txt'))
-          ..writeAsStringSync('keep me');
-        final link = Link(p.join(baseDir.path, 'linked-directory'));
-        await link.create(outsideDir.path);
-        final task = DownloadTask(
-          id: 'task-link',
-          name: 'linked-directory',
-          status: DownloadStatus.stopped,
-          progress: 0,
-          downloadSpeed: '0 B/s',
-          uploadSpeed: '0 B/s',
-          size: '0 B',
-          completedSize: '0 B',
-          isLocal: true,
-          instanceId: 'local',
-          dir: baseDir.path,
-          files: <Map<String, dynamic>>[
-            <String, dynamic>{'path': link.path},
-          ],
-        );
+    test('deletes a directory symlink without following it', () async {
+      final tempRoot = await Directory.systemTemp.createTemp(
+        'download-task-service-link-',
+      );
+      addTearDown(() => tempRoot.deleteSync(recursive: true));
+      final baseDir = Directory(p.join(tempRoot.path, 'base'))..createSync();
+      final outsideDir = Directory(p.join(tempRoot.path, 'outside'))
+        ..createSync();
+      final outsideFile = File(p.join(outsideDir.path, 'keep.txt'))
+        ..writeAsStringSync('keep me');
+      final link = Link(p.join(baseDir.path, 'linked-directory'));
+      await _directoryLink(link.path, outsideDir.path);
+      final task = DownloadTask(
+        id: 'task-link',
+        name: 'linked-directory',
+        status: DownloadStatus.stopped,
+        progress: 0,
+        downloadSpeed: '0 B/s',
+        uploadSpeed: '0 B/s',
+        size: '0 B',
+        completedSize: '0 B',
+        isLocal: true,
+        instanceId: 'local',
+        dir: baseDir.path,
+        files: <Map<String, dynamic>>[
+          <String, dynamic>{'path': link.path},
+        ],
+      );
 
-        final errors = (await DownloadTaskService.deleteTaskWithClient(
-          FakeRpcClient(),
-          task,
-          deleteDownloadedFiles: true,
-        )).fileDeletionErrors;
+      final errors = (await DownloadTaskService.deleteTaskWithClient(
+        FakeRpcClient(),
+        task,
+        deleteDownloadedFiles: true,
+      )).fileDeletionErrors;
 
-        expect(errors, isEmpty);
-        expect(await link.exists(), isFalse);
-        expect(await outsideFile.exists(), isTrue);
-      },
-      skip: Platform.isWindows
-          ? 'Creating symlinks commonly requires extra Windows privileges.'
-          : false,
-    );
+      expect(errors, isEmpty);
+      expect(await link.exists(), isFalse);
+      expect(await outsideFile.exists(), isTrue);
+    });
   });
 
   test('does not delete files when task removal is unconfirmed', () async {
@@ -182,4 +176,101 @@ void main() {
     );
     expect(await file.readAsString(), 'keep');
   });
+  test('rejects a file reached through an escaping parent link', () async {
+    final root = await Directory.systemTemp.createTemp('setsuna-boundary-');
+    addTearDown(() => root.delete(recursive: true));
+    final base = await Directory(p.join(root.path, 'base')).create();
+    final outside = await Directory(p.join(root.path, 'outside')).create();
+    final file = File(p.join(outside.path, 'keep.txt'));
+    await file.writeAsString('keep');
+    final linkPath = p.join(base.path, 'linked');
+    await _directoryLink(linkPath, outside.path);
+    final result = await _deleteFile(base.path, p.join(linkPath, 'keep.txt'));
+    expect(result.removedFromAria2, isTrue);
+    expect(result.hasFileDeletionErrors, isTrue);
+    expect(await file.readAsString(), 'keep');
+  });
+
+  test('supports a linked download root and removes empty parents', () async {
+    final root = await Directory.systemTemp.createTemp('setsuna-linked-root-');
+    addTearDown(() => root.delete(recursive: true));
+    final real = await Directory(p.join(root.path, 'real')).create();
+    final nested = await Directory(p.join(real.path, 'nested')).create();
+    final file = File(p.join(nested.path, 'done.txt'));
+    await file.writeAsString('done');
+    final linkPath = p.join(root.path, 'downloads');
+    await _directoryLink(linkPath, real.path);
+    final result = await _deleteFile(
+      linkPath,
+      p.join(linkPath, 'nested', 'done.txt'),
+    );
+    expect(result.fileDeletionErrors, isEmpty);
+    expect(await file.exists(), isFalse);
+    expect(await nested.exists(), isFalse);
+    expect(await real.exists(), isTrue);
+  });
+
+  test('preserves the root and adjacent prefix directories', () async {
+    final root = await Directory.systemTemp.createTemp('setsuna-prefix-');
+    addTearDown(() => root.delete(recursive: true));
+    final base = await Directory(p.join(root.path, 'base')).create();
+    final sibling = await Directory(p.join(root.path, 'base-other')).create();
+    final file = File(p.join(sibling.path, 'keep.txt'));
+    await file.writeAsString('keep');
+    expect(
+      (await _deleteFile(base.path, base.path)).hasFileDeletionErrors,
+      isTrue,
+    );
+    expect(
+      (await _deleteFile(base.path, file.path)).hasFileDeletionErrors,
+      isTrue,
+    );
+    expect(await file.exists(), isTrue);
+    expect(await base.exists(), isTrue);
+    expect(
+      (await _deleteFile(
+        base.path,
+        p.join(base.path, 'missing'),
+      )).fileDeletionErrors,
+      isEmpty,
+    );
+  });
+}
+
+Future<DeleteTaskResult> _deleteFile(String root, String path) {
+  return DownloadTaskService.deleteTaskWithClient(
+    FakeRpcClient(),
+    DownloadTask(
+      id: 'task',
+      name: 'task',
+      status: DownloadStatus.stopped,
+      progress: 0,
+      downloadSpeed: '0 B/s',
+      uploadSpeed: '0 B/s',
+      size: '0 B',
+      completedSize: '0 B',
+      isLocal: true,
+      instanceId: 'builtin',
+      dir: root,
+      files: [
+        {'path': path},
+      ],
+    ),
+    deleteDownloadedFiles: true,
+  );
+}
+
+Future<void> _directoryLink(String link, String target) async {
+  if (!Platform.isWindows) {
+    await Link(link).create(target);
+    return;
+  }
+  String quote(String value) => "'${value.replaceAll("'", "''")}'";
+  final result = await Process.run('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    "New-Item -ItemType Junction -Path ${quote(link)} -Target ${quote(target)} -ErrorAction Stop | Out-Null",
+  ]);
+  expect(result.exitCode, 0, reason: '${result.stderr}');
 }
