@@ -150,6 +150,14 @@ class DownloadDataService extends ChangeNotifier with Loggable {
       download += stats.downloadSpeed;
       upload += stats.uploadSpeed;
     }
+    if (!seen) return null;
+    for (final task in _tasks) {
+      if (_globalStats[task.instanceId] == null &&
+          task.status == DownloadStatus.active) {
+        download += task.downloadSpeedBytes;
+        upload += task.uploadSpeedBytes;
+      }
+    }
     return seen ? (downloadSpeed: download, uploadSpeed: upload) : null;
   }
 
@@ -392,6 +400,7 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         }
 
         newTasks.addAll(_tasksByInstance[result.instanceId] ?? const []);
+        _globalStats.remove(result.instanceId);
         final message = result.error.toString();
         errors.add('${result.instanceId}: $message');
         final failures =
@@ -568,8 +577,11 @@ class DownloadDataService extends ChangeNotifier with Loggable {
 
       // Phase 2: the basic projection changed, so re-fetch every field.
       _detailedRefreshRequired.add(instanceId);
-      final detailedResults = await client.getDownloadStatus();
+      final detailedResults = await client.getDownloadStatus(
+        includeGlobalStat: true,
+      );
       _validateTaskResults(detailedResults);
+      _updateGlobalStats(instanceId, detailedResults);
       final parsedDetailed = _parseTaskGroups(
         detailedResults,
         instanceId,

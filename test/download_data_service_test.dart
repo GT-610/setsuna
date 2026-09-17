@@ -621,4 +621,79 @@ void main() {
     service.dispose();
     await server.close(force: true);
   });
+  test(
+    'combines per-instance stats and fallback without stale global speed',
+    () async {
+      var failed = false;
+      Future<HttpServer> server({required bool stats}) async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        server.listen((request) async {
+          final body = jsonDecode(await utf8.decoder.bind(request).join());
+          request.response.write(
+            jsonEncode({
+              'id': body['id'],
+              'jsonrpc': '2.0',
+              'result': stats && failed
+                  ? [
+                      {'code': 1},
+                      [],
+                      [],
+                    ]
+                  : [
+                      [
+                        [
+                          {
+                            'gid': 'one',
+                            'status': 'active',
+                            'totalLength': '100',
+                            'completedLength': '10',
+                            'downloadSpeed': '10',
+                            'uploadSpeed': '2',
+                          },
+                        ],
+                      ],
+                      [[]],
+                      [[]],
+                      if (stats)
+                        [
+                          {'downloadSpeed': '1000', 'uploadSpeed': '100'},
+                        ],
+                    ],
+            }),
+          );
+          await request.response.close();
+        });
+        return server;
+      }
+
+      final withStats = await server(stats: true);
+      final withoutStats = await server(stats: false);
+      Aria2Instance instance(String id, HttpServer server) => Aria2Instance(
+        id: id,
+        name: id,
+        type: InstanceType.remote,
+        protocol: 'http',
+        host: '127.0.0.1',
+        port: server.port,
+        status: ConnectionStatus.connected,
+      );
+      final instances = [
+        instance('stats', withStats),
+        instance('fallback', withoutStats),
+      ];
+      final service = DownloadDataService();
+      addTearDown(service.dispose);
+      await service.refreshTasks(instances);
+      expect(service.taskSummary.speed, 1010);
+      expect(service.totalUploadSpeed, 102);
+      failed = true;
+      await service.refreshTasks(instances);
+      expect(service.instanceStates['stats']!.isStale, isTrue);
+      expect(service.taskSummary.speed, 20);
+      expect(service.totalUploadSpeed, 4);
+      await service.refreshTasks([instances.last]);
+      expect(service.taskSummary.speed, 10);
+    },
+  );
 }
