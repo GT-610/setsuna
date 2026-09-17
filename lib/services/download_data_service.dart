@@ -28,31 +28,22 @@ class InstanceRefreshState {
   final DateTime? nextRetryAt;
 }
 
-/// Snapshot of aria2's global stat for a single instance.
+/// Global transfer speeds reported by a single instance.
 class GlobalInstanceStats {
   const GlobalInstanceStats({
     required this.downloadSpeed,
     required this.uploadSpeed,
-    required this.activeCount,
-    required this.waitingCount,
-    required this.stoppedCount,
   });
 
   factory GlobalInstanceStats.fromRpc(Map<String, dynamic> data) {
     return GlobalInstanceStats(
       downloadSpeed: int.tryParse('${data['downloadSpeed']}') ?? 0,
       uploadSpeed: int.tryParse('${data['uploadSpeed']}') ?? 0,
-      activeCount: int.tryParse('${data['numActive']}') ?? 0,
-      waitingCount: int.tryParse('${data['numWaiting']}') ?? 0,
-      stoppedCount: int.tryParse('${data['numStopped']}') ?? 0,
     );
   }
 
   final int downloadSpeed;
   final int uploadSpeed;
-  final int activeCount;
-  final int waitingCount;
-  final int stoppedCount;
 }
 
 /// Aggregated cross-instance counters used by the status bar and tray.
@@ -124,8 +115,7 @@ class DownloadDataService extends ChangeNotifier with Loggable {
   final int _refreshInterval = 1000;
 
   final Map<String, Aria2RpcClient> _clientCache = {};
-  final Map<String, StreamSubscription<Aria2RpcNotification>>
-  _notificationSubscriptions = {};
+  final Map<String, StreamSubscription<String>> _notificationSubscriptions = {};
   List<Aria2Instance> Function()? _connectedInstancesProvider;
   List<Aria2Instance>? _pendingRefreshInstances;
   Future<void>? _refreshLoop;
@@ -182,9 +172,11 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     var waiting = 0;
     var resumable = 0;
     var pausable = 0;
+    var fallbackSpeed = 0;
     for (final task in _tasks) {
       if (task.status == DownloadStatus.active) {
         active++;
+        fallbackSpeed += task.downloadSpeedBytes;
       } else if (task.status == DownloadStatus.waiting) {
         waiting++;
       }
@@ -198,12 +190,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         pausable++;
       }
     }
-    final fallbackSpeed = _tasks.fold<int>(
-      0,
-      (sum, task) => task.status == DownloadStatus.active
-          ? sum + task.downloadSpeedBytes
-          : sum,
-    );
     final speed = aggregatedGlobalSpeeds?.downloadSpeed ?? fallbackSpeed;
     return (
       active: active,
@@ -436,17 +422,18 @@ class DownloadDataService extends ChangeNotifier with Loggable {
       for (var index = 0; index < newTasks.length; index++) {
         final task = newTasks[index];
         final previous = previousByKey[task.key];
-        if (previous != null && task.sameContentAs(previous)) {
+        if (previous != null &&
+            !identical(task, previous) &&
+            task.sameContentAs(previous)) {
           newTasks[index] = previous;
         }
       }
       final unchanged =
           newTasks.length == previousTasks.length &&
           newTasks.every((task) => identical(previousByKey[task.key], task));
-      final terminalTransitionInstanceIds = _collectTaskNotifications(
-        previousTasks,
-        newTasks,
-      );
+      final terminalTransitionInstanceIds = unchanged
+          ? const <String>{}
+          : _collectTaskNotifications(previousTasks, newTasks);
       if (!unchanged) {
         final lowerCaseNames = {
           for (final task in newTasks) task.name: task.name.toLowerCase(),
@@ -476,11 +463,8 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     }
   }
 
-  void _handleRpcNotification(
-    Aria2Instance instance,
-    Aria2RpcNotification notification,
-  ) {
-    if (_isDisposed || !notification.method.startsWith('aria2.on')) {
+  void _handleRpcNotification(Aria2Instance instance, String notification) {
+    if (_isDisposed || !notification.startsWith('aria2.on')) {
       return;
     }
     final latestInstances = _connectedInstancesProvider?.call();

@@ -798,8 +798,7 @@ void main() {
 
       expect(await client.getVersion(), '1.37.0');
       final event = await notification.timeout(const Duration(seconds: 1));
-      expect(event.method, 'aria2.onDownloadComplete');
-      expect(event.gid, 'complete-gid');
+      expect(event, 'aria2.onDownloadComplete');
 
       await client.close();
       await server.close(force: true);

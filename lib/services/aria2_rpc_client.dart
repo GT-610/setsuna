@@ -41,20 +41,6 @@ class RpcResultIndeterminateException extends RpcException {
     : super('The result of $method is unknown because the connection closed');
 }
 
-class Aria2RpcNotification {
-  const Aria2RpcNotification({required this.method, required this.params});
-
-  final String method;
-  final List<dynamic> params;
-
-  String? get gid {
-    if (params.isEmpty || params.first is! Map) {
-      return null;
-    }
-    return (params.first as Map)['gid']?.toString();
-  }
-}
-
 class _PendingRpcRequest {
   _PendingRpcRequest({required this.completer, required this.generation});
 
@@ -78,14 +64,13 @@ class Aria2RpcClient with Loggable {
   StreamSubscription? _webSocketSubscription;
   Future<void>? _webSocketInitFuture;
   final Map<String, _PendingRpcRequest> _pendingRequests = {};
-  final StreamController<Aria2RpcNotification>? _notificationController;
+  final StreamController<String>? _notificationController;
   final bool _isWebSocket;
   bool _isClosed = false;
   int _connectionGeneration = 0;
 
-  Stream<Aria2RpcNotification> get notifications =>
-      _notificationController?.stream ??
-      const Stream<Aria2RpcNotification>.empty();
+  Stream<String> get notifications =>
+      _notificationController?.stream ?? const Stream<String>.empty();
 
   /// Factory method to create appropriate client based on protocol
   factory Aria2RpcClient(
@@ -121,7 +106,7 @@ class Aria2RpcClient with Loggable {
        _retryDelay = retryDelay,
        _maximumAttempts = maximumAttempts,
        _notificationController = isWebSocket
-           ? StreamController<Aria2RpcNotification>.broadcast()
+           ? StreamController<String>.broadcast()
            : null,
        _httpClient = isWebSocket ? null : http.Client();
 
@@ -392,12 +377,7 @@ class Aria2RpcClient with Loggable {
         final method = response['method'];
         final params = response['params'];
         if (method is String && params is List) {
-          _notificationController?.add(
-            Aria2RpcNotification(
-              method: method,
-              params: List<dynamic>.from(params),
-            ),
-          );
+          _notificationController?.add(method);
         }
         return;
       }
