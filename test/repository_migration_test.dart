@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -16,6 +17,7 @@ class _MemoryCredentialStore implements CredentialStore {
   final Map<String, String> values = <String, String>{};
   bool failWrites = false;
   int writeCalls = 0;
+  Completer<void>? gate;
 
   @override
   Future<void> delete(String key) async {
@@ -28,6 +30,7 @@ class _MemoryCredentialStore implements CredentialStore {
   @override
   Future<void> writeVerified(String key, String value) async {
     writeCalls++;
+    await gate?.future;
     if (failWrites) {
       throw StateError('secure storage unavailable');
     }
@@ -308,5 +311,90 @@ void main() {
 
     expect(settings.isLoaded, isTrue);
     expect(settings.maxConcurrentDownloads, 5);
+  });
+  test('serializes credentials with settings snapshots', () async {
+    final credentials = _MemoryCredentialStore()..gate = Completer<void>();
+    final repository = SettingsRepository(
+      paths: paths,
+      credentialStore: credentials,
+    );
+    final input = <String, dynamic>{
+      'rpcSecret': 'first',
+      'nested': {'value': 1},
+    };
+    final first = repository.save(input);
+    (input['nested'] as Map)['value'] = 999;
+    final second = repository.save({
+      'rpcSecret': 'second',
+      'nested': {'value': 2},
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(credentials.writeCalls, 1);
+    credentials.gate!.complete();
+    await first;
+    await second;
+    final stored = jsonDecode(
+      await File(
+        p.join(paths.configDirectory.path, 'settings.json'),
+      ).readAsString(),
+    );
+    expect(stored['settings']['nested']['value'], 2);
+    expect(
+      credentials.values[SecureCredentialStore.builtinSecretKey],
+      'second',
+    );
+    credentials.failWrites = true;
+    await expectLater(repository.save({'rpcSecret': 'fail'}), throwsStateError);
+    credentials.failWrites = false;
+    await repository.save({'rpcSecret': 'recovered'});
+    expect(
+      credentials.values[SecureCredentialStore.builtinSecretKey],
+      'recovered',
+    );
+  });
+
+  test('serializes instance credential and list snapshots', () async {
+    final credentials = _MemoryCredentialStore()..gate = Completer<void>();
+    final repository = InstanceRepository(
+      paths: paths,
+      credentialStore: credentials,
+    );
+    Aria2Instance instance(String secret) => Aria2Instance(
+      id: 'one',
+      name: secret,
+      type: InstanceType.remote,
+      protocol: 'http',
+      host: 'localhost',
+      port: 6800,
+      secret: secret,
+    );
+    final input = [instance('first')];
+    final first = repository.save(input);
+    input.clear();
+    final second = repository.save([instance('second')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(credentials.writeCalls, 1);
+    credentials.gate!.complete();
+    await Future.wait([first, second]);
+    final stored = jsonDecode(
+      await File(
+        p.join(paths.configDirectory.path, 'aria2_instances.json'),
+      ).readAsString(),
+    );
+    expect(stored['instances'].single['name'], 'second');
+    expect(
+      credentials.values[SecureCredentialStore.instanceSecretKey('one')],
+      'second',
+    );
+  });
+
+  test('recovers a backup left before the primary rename', () async {
+    final target = File(p.join(root.path, 'atomic.json'));
+    await File('${target.path}.bak').writeAsString('previous');
+    await AtomicFile.recover(target);
+    expect(await target.readAsString(), 'previous');
+    await AtomicFile.writeString(target, 'next');
+    expect(await target.readAsString(), 'next');
+    expect(await File('${target.path}.bak').exists(), isFalse);
   });
 }

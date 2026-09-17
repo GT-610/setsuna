@@ -1,3 +1,5 @@
+import '../utils/serial_executor.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +18,7 @@ class InstanceManager extends ChangeNotifier with Loggable {
   InstanceManager({InstanceRepository? repository})
     : _repository = repository ?? InstanceRepository();
 
+  final _mutations = SerialExecutor();
   List<Aria2Instance> _instances = [];
   final InstanceRepository _repository;
   final Uuid _uuid = const Uuid();
@@ -26,7 +29,7 @@ class InstanceManager extends ChangeNotifier with Loggable {
   bool _isDisposed = false;
   final Map<String, Future<bool>> _connectionOperations = {};
 
-  List<Aria2Instance> get instances => _instances;
+  List<Aria2Instance> get instances => List.unmodifiable(_instances);
 
   void _invalidateConnectedCache() {
     _cachedConnectedInstances = null;
@@ -211,88 +214,73 @@ class InstanceManager extends ChangeNotifier with Loggable {
     }
   }
 
-  /// Add instance
-  Future<void> addInstance(Aria2Instance instance) async {
-    try {
-      // Only allow adding remote instances
-      if (instance.type != InstanceType.remote) {
-        throw Exception('Only remote instances can be added');
+  Future<void> _persistAndPublish(List<Aria2Instance> next) async {
+    await _repository.save(next, credentialsBlocked: _credentialsBlocked);
+    if (_isDisposed) return;
+    final latest = {for (final instance in _instances) instance.id: instance};
+    _instances = next.map((instance) {
+      final current = latest[instance.id];
+      if (current == null ||
+          current.connectionFingerprint != instance.connectionFingerprint) {
+        return instance;
       }
-
-      // Ensure ID is unique
-      if (instance.id.isEmpty || _instances.any((i) => i.id == instance.id)) {
-        instance = instance.copyWith(id: _uuid.v4());
-      }
-
-      // Ensure instance status is disconnected
-      final newInstance = instance.copyWith(
-        status: ConnectionStatus.disconnected,
+      return instance.copyWith(
+        status: current.status,
+        version: current.version,
+        errorMessage: current.errorMessage,
       );
-
-      _instances.add(newInstance);
-      _invalidateConnectedCache();
-      await _saveInstances();
-      i('Added instance ${newInstance.name}');
-      notifyListeners();
-    } catch (e, stackTrace) {
-      this.e('Failed to add instance', error: e, stackTrace: stackTrace);
-      throw Exception('Failed to add instance: $e');
-    }
+    }).toList();
+    _invalidateConnectedCache();
+    _notifyAfterBuild();
   }
 
-  /// Update instance
-  Future<void> updateInstance(Aria2Instance updatedInstance) async {
-    try {
-      // Can't update built-in instance
-      if (updatedInstance.id == 'builtin') {
-        throw Exception('Cannot edit the built-in instance');
-      }
-
-      final index = _instances.indexWhere((i) => i.id == updatedInstance.id);
-      if (index != -1) {
-        _instances[index] = updatedInstance;
-        _invalidateConnectedCache();
-
-        await _saveInstances();
-        i('Updated instance ${updatedInstance.name}');
-        notifyListeners();
-      } else {
-        w('Cannot update instance because ${updatedInstance.id} was not found');
-        throw Exception('Cannot find instance to update');
-      }
-    } catch (e, stackTrace) {
-      this.e('Failed to update instance', error: e, stackTrace: stackTrace);
-      rethrow;
+  Future<void> addInstance(Aria2Instance instance) => _mutations.run(() async {
+    if (_isDisposed) throw StateError('Instance manager is disposed');
+    if (instance.type != InstanceType.remote) {
+      throw ArgumentError('Only remote instances can be added');
     }
-  }
+    final id = instance.id.isEmpty || _instances.any((i) => i.id == instance.id)
+        ? _uuid.v4()
+        : instance.id;
+    final added = instance.copyWith(
+      id: id,
+      status: ConnectionStatus.disconnected,
+    );
+    await _persistAndPublish([..._instances, added]);
+    i('Added instance ${added.name}');
+  });
 
-  /// Delete instance
-  Future<void> deleteInstance(String instanceId) async {
+  Future<void> updateInstance(Aria2Instance updated) =>
+      _mutations.run(() async {
+        if (_isDisposed) throw StateError('Instance manager is disposed');
+        if (updated.id == 'builtin')
+          throw ArgumentError('Cannot edit the built-in instance');
+        final index = _instances.indexWhere((i) => i.id == updated.id);
+        if (index < 0) throw StateError('Cannot find instance to update');
+        final next = List<Aria2Instance>.of(_instances)..[index] = updated;
+        await _persistAndPublish(next);
+        i('Updated instance ${updated.name}');
+      });
+
+  Future<void> deleteInstance(String instanceId) => _mutations.run(() async {
+    if (_isDisposed) throw StateError('Instance manager is disposed');
+    if (instanceId == 'builtin')
+      throw ArgumentError('Cannot delete the built-in instance');
+    if (_instances.length <= 1)
+      throw StateError('Cannot delete the only instance');
+    await _persistAndPublish(
+      _instances.where((i) => i.id != instanceId).toList(),
+    );
     try {
-      // Can't delete built-in instance
-      if (instanceId == 'builtin') {
-        throw Exception('Cannot delete the built-in instance');
-      }
-
-      // Can't delete the last instance
-      if (_instances.length <= 1) {
-        throw Exception('Cannot delete the only instance');
-      }
-
-      _instances.removeWhere((i) => i.id == instanceId);
-      _invalidateConnectedCache();
-      await _saveInstances();
       await _repository.deleteCredentials(instanceId);
-      notifyListeners();
-    } catch (e, stackTrace) {
-      this.e(
-        'Failed to delete instance $instanceId',
-        error: e,
+    } catch (error, stackTrace) {
+      w(
+        'Instance $instanceId was deleted, but credential cleanup failed',
+        error: error,
         stackTrace: stackTrace,
       );
-      rethrow;
     }
-  }
+  });
 
   /// Check instance connection status
   Future<bool> checkConnection(Aria2Instance instance) async {
