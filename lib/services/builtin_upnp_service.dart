@@ -53,6 +53,10 @@ class _PortMappingRequest {
 }
 
 class BuiltinUpnpService with Loggable {
+  BuiltinUpnpService({Future<Gateway?> Function()? discoverGateway})
+    : _discoverGateway = discoverGateway ?? Gateway.discover;
+  final Future<Gateway?> Function() _discoverGateway;
+
   static const Duration _discoverTimeout = Duration(seconds: 5);
   static const Duration _mappingTimeout = Duration(seconds: 3);
   static const int _maxExpandedPorts = 256;
@@ -176,10 +180,7 @@ class BuiltinUpnpService with Loggable {
     }
 
     try {
-      _gateway = await Gateway.discover().timeout(
-        _discoverTimeout,
-        onTimeout: () => null,
-      );
+      _gateway = await _discoverGateway().timeout(_discoverTimeout);
     } catch (e, stackTrace) {
       w(
         'Failed to discover UPnP/NAT-PMP gateway',
@@ -291,14 +292,18 @@ class BuiltinUpnpService with Loggable {
     await Future.wait(
       rules.map((rule) async {
         try {
-          await gateway
+          final mapped = await gateway
               .openPort(
                 protocol: rule.protocol,
                 externalPort: rule.port,
                 portDescription: rule.description,
               )
               .timeout(_mappingTimeout);
-          successfulRules.add(rule);
+          if (mapped) {
+            successfulRules.add(rule);
+          } else {
+            w('Gateway rejected ${rule.protocol.name} port ${rule.port}');
+          }
         } on UPnPError catch (e) {
           final alreadyMapped = await _isRuleAlreadyMapped(gateway, rule);
           if (alreadyMapped) {

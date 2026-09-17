@@ -137,7 +137,9 @@ class _HomeWrapperState extends State<_HomeWrapper> with Loggable {
         .reconcileProtocolPreferences(settings);
     bool startupPreferenceFailure = false;
     try {
-      await StartupIntegrationService().reconcileStartupPreference(settings);
+      await StartupIntegrationService.instance.reconcileStartupPreference(
+        settings,
+      );
     } catch (e, stackTrace) {
       startupPreferenceFailure = true;
       w(
