@@ -695,6 +695,9 @@ class DownloadTaskService with Loggable {
     }
 
     final baseDir = _normalizePath(dir);
+    if (await FileSystemEntity.type(baseDir) == FileSystemEntityType.notFound) {
+      return const [];
+    }
     final resolvedBase = _normalizePath(
       await Directory(baseDir).resolveSymbolicLinks(),
     );

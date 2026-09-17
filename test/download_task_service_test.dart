@@ -184,6 +184,22 @@ void main() {
     expect(await directory.exists(), isFalse);
     expect(await keep.readAsString(), 'keep');
   });
+
+  test(
+    'treats an already removed download root as successful cleanup',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'setsuna-removed-root-',
+      );
+      await root.delete();
+      final result = await _deleteFile(
+        root.path,
+        p.join(root.path, 'missing.txt'),
+      );
+      expect(result.removedFromAria2, isTrue);
+      expect(result.fileDeletionErrors, isEmpty);
+    },
+  );
   test('does not delete files when task removal is unconfirmed', () async {
     final root = await Directory.systemTemp.createTemp('setsuna-delete-');
     addTearDown(() => root.delete(recursive: true));
