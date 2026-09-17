@@ -86,12 +86,6 @@ class ClipboardMonitorService with Loggable {
     return uri;
   }
 
-  @visibleForTesting
-  int get synchronizedSchemes => _schemes;
-
-  @visibleForTesting
-  Future<void> pollNow() => _tick();
-
   Future<void> _tick() {
     final inFlight = _tickInFlight;
     if (inFlight != null) {

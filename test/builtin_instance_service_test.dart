@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:setsuna/models/settings.dart';
 import 'package:setsuna/services/builtin_instance_service.dart';
+import 'package:setsuna/services/builtin_engine_configuration.dart';
+import 'package:setsuna/services/builtin_engine_capabilities.dart';
+import 'package:setsuna/utils/app_paths.dart';
 
 import 'support/memory_settings_repository.dart';
 
@@ -48,12 +51,9 @@ void main() {
 
     setUp(() {
       service = BuiltinInstanceService();
-      service.clearBoundSettings();
     });
 
-    tearDown(() {
-      service.clearBoundSettings();
-    });
+    tearDown(() {});
 
     test('unwraps repository settings snapshots', () {
       final snapshot = service.decodePersistedSettingsSnapshot(
@@ -81,101 +81,123 @@ void main() {
       expect(instance.downloadDir, 'C:\\Downloads\\Setsuna');
     });
 
-    test(
-      'active recovered RPC port overrides stale persisted settings',
-      () async {
-        final settings = Settings(
-          repository: MemorySettingsRepository(<String, dynamic>{
-            'rpcListenPort': 16882,
-          }),
-        );
-        await settings.loadSettings();
-        service.bindSettings(settings);
-
-        service.setActiveRpcPortForTesting(16883);
-
-        expect(service.getBuiltinInstanceConfig().port, 16883);
-
-        service.setActiveRpcPortForTesting(null);
-        expect(service.getBuiltinInstanceConfig().port, 16882);
-      },
-    );
-
     group('resolveEffectiveDhtListenPort', () {
       test('returns valid int port', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 5000}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 5000}),
           5000,
         );
       });
 
       test('returns default for null', () {
-        expect(service.resolveEffectiveDhtListenPort({}), 26701);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({}),
+          26701,
+        );
       });
 
       test('returns default for zero', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 0}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 0}),
           26701,
         );
       });
 
       test('returns default for negative', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': -1}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': -1}),
           26701,
         );
       });
 
       test('returns default for over 65535', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 70000}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 70000}),
           26701,
         );
       });
 
       test('accepts boundary value 1', () {
-        expect(service.resolveEffectiveDhtListenPort({'dhtListenPort': 1}), 1);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 1}),
+          1,
+        );
       });
 
       test('accepts boundary value 65535', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 65535}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 65535}),
           65535,
         );
       });
 
       test('parses valid string port', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': '8080'}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': '8080'}),
           8080,
         );
       });
 
       test('parses string port with whitespace', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': '  5000  '}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': '  5000  '}),
           5000,
         );
       });
 
       test('returns default for invalid string', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 'abc'}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 'abc'}),
           26701,
         );
       });
 
       test('returns default for out-of-range string', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': '99999'}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': '99999'}),
           26701,
         );
       });
 
       test('returns default for non-int, non-string type', () {
         expect(
-          service.resolveEffectiveDhtListenPort({'dhtListenPort': 3.14}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveDhtListenPort({'dhtListenPort': 3.14}),
           26701,
         );
       });
@@ -184,39 +206,60 @@ void main() {
     group('resolveEffectiveBtListenPort', () {
       test('returns configured port when non-empty', () {
         expect(
-          service.resolveEffectiveBtListenPort({'btListenPort': '51413'}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({'btListenPort': '51413'}),
           '51413',
         );
       });
 
       test('returns configured port range', () {
         expect(
-          service.resolveEffectiveBtListenPort({'btListenPort': '6881-6999'}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({'btListenPort': '6881-6999'}),
           '6881-6999',
         );
       });
 
       test('returns default for empty string', () {
         expect(
-          service.resolveEffectiveBtListenPort({'btListenPort': ''}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({'btListenPort': ''}),
           '6881-6999',
         );
       });
 
       test('returns default for whitespace-only string', () {
         expect(
-          service.resolveEffectiveBtListenPort({'btListenPort': '   '}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({'btListenPort': '   '}),
           '6881-6999',
         );
       });
 
       test('returns default for null', () {
-        expect(service.resolveEffectiveBtListenPort({}), '6881-6999');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({}),
+          '6881-6999',
+        );
       });
 
       test('trims whitespace from configured port', () {
         expect(
-          service.resolveEffectiveBtListenPort({'btListenPort': '  51413  '}),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveEffectiveBtListenPort({'btListenPort': '  51413  '}),
           '51413',
         );
       });
@@ -225,38 +268,50 @@ void main() {
     group('resolveConfiguredFilePath', () {
       test('returns configured path when non-empty', () {
         expect(
-          service.resolveConfiguredFilePath('/custom/path', '/default/path'),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveConfiguredFilePath('/custom/path', '/default/path'),
           '/custom/path',
         );
       });
 
       test('returns fallback for empty string', () {
         expect(
-          service.resolveConfiguredFilePath('', '/default/path'),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveConfiguredFilePath('', '/default/path'),
           '/default/path',
         );
       });
 
       test('returns fallback for null', () {
         expect(
-          service.resolveConfiguredFilePath(null, '/default/path'),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveConfiguredFilePath(null, '/default/path'),
           '/default/path',
         );
       });
 
       test('returns fallback for whitespace-only string', () {
         expect(
-          service.resolveConfiguredFilePath('   ', '/default/path'),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveConfiguredFilePath('   ', '/default/path'),
           '/default/path',
         );
       });
 
       test('trims whitespace from configured path', () {
         expect(
-          service.resolveConfiguredFilePath(
-            '  /custom/path  ',
-            '/default/path',
-          ),
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).resolveConfiguredFilePath('  /custom/path  ', '/default/path'),
           '/custom/path',
         );
       });
@@ -264,130 +319,279 @@ void main() {
 
     group('formatSpeedLimitArg', () {
       test('returns 0 for zero', () {
-        expect(service.formatSpeedLimitArg(0), '0');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(0),
+          '0',
+        );
       });
 
       test('returns 0 for negative', () {
-        expect(service.formatSpeedLimitArg(-100), '0');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(-100),
+          '0',
+        );
       });
 
       test('formats positive int with K suffix', () {
-        expect(service.formatSpeedLimitArg(1024), '1024K');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(1024),
+          '1024K',
+        );
       });
 
       test('formats positive double with K suffix', () {
-        expect(service.formatSpeedLimitArg(1024.5), '1024K');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(1024.5),
+          '1024K',
+        );
       });
 
       test('parses string value', () {
-        expect(service.formatSpeedLimitArg('512'), '512K');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg('512'),
+          '512K',
+        );
       });
 
       test('returns 0 for invalid string', () {
-        expect(service.formatSpeedLimitArg('abc'), '0');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg('abc'),
+          '0',
+        );
       });
 
       test('returns 0 for null', () {
-        expect(service.formatSpeedLimitArg(null), '0');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(null),
+          '0',
+        );
       });
 
       test('returns 0 for empty string', () {
-        expect(service.formatSpeedLimitArg(''), '0');
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).formatSpeedLimitArg(''),
+          '0',
+        );
       });
     });
 
     group('effectiveSeedTime', () {
       test('returns 525600 when keepSeeding is true', () {
-        expect(service.effectiveSeedTime(true, 60), 525600);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(true, 60),
+          525600,
+        );
       });
 
       test('returns 525600 when keepSeeding true regardless of value', () {
-        expect(service.effectiveSeedTime(true, 0), 525600);
-        expect(service.effectiveSeedTime(true, null), 525600);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(true, 0),
+          525600,
+        );
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(true, null),
+          525600,
+        );
       });
 
       test('returns configured int value when not keeping', () {
-        expect(service.effectiveSeedTime(false, 120), 120);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(false, 120),
+          120,
+        );
       });
 
       test('returns default 60 for null when not keeping', () {
-        expect(service.effectiveSeedTime(false, null), 60);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(false, null),
+          60,
+        );
       });
 
       test('parses string value', () {
-        expect(service.effectiveSeedTime(false, '240'), 240);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(false, '240'),
+          240,
+        );
       });
 
       test('returns default for invalid string', () {
-        expect(service.effectiveSeedTime(false, 'abc'), 60);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(false, 'abc'),
+          60,
+        );
       });
 
       test('converts double to int', () {
-        expect(service.effectiveSeedTime(false, 90.5), 90);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedTime(false, 90.5),
+          90,
+        );
       });
     });
 
     group('effectiveSeedRatio', () {
       test('returns 0.0 when keepSeeding is true', () {
-        expect(service.effectiveSeedRatio(true, 1.0), 0.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(true, 1.0),
+          0.0,
+        );
       });
 
       test('returns 0.0 when keepSeeding true regardless of value', () {
-        expect(service.effectiveSeedRatio(true, 2.0), 0.0);
-        expect(service.effectiveSeedRatio(true, null), 0.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(true, 2.0),
+          0.0,
+        );
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(true, null),
+          0.0,
+        );
       });
 
       test('returns configured double value when not keeping', () {
-        expect(service.effectiveSeedRatio(false, 2.5), 2.5);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(false, 2.5),
+          2.5,
+        );
       });
 
       test('returns default 1.0 for null when not keeping', () {
-        expect(service.effectiveSeedRatio(false, null), 1.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(false, null),
+          1.0,
+        );
       });
 
       test('parses string value', () {
-        expect(service.effectiveSeedRatio(false, '3.0'), 3.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(false, '3.0'),
+          3.0,
+        );
       });
 
       test('returns default for invalid string', () {
-        expect(service.effectiveSeedRatio(false, 'abc'), 1.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(false, 'abc'),
+          1.0,
+        );
       });
 
       test('converts int to double', () {
-        expect(service.effectiveSeedRatio(false, 2), 2.0);
+        expect(
+          BuiltinEngineConfiguration(
+            {},
+            AppPaths.instance,
+          ).effectiveSeedRatio(false, 2),
+          2.0,
+        );
       });
     });
   });
 
   group('engine hardening helpers', () {
-    setUp(BuiltinInstanceService.clearDetachShareOnlySupportCache);
-
-    tearDown(() {
-      BuiltinInstanceService.clearDetachShareOnlySupportCache();
-      BuiltinInstanceService().clearBoundSettings();
-    });
-
     test('sanitizeAllProxyArg rejects SOCKS schemes in any case', () {
-      expect(BuiltinInstanceService.sanitizeAllProxyArg('socks5://h:1'), null);
-      expect(BuiltinInstanceService.sanitizeAllProxyArg('SOCKS5://h:1'), null);
-      expect(BuiltinInstanceService.sanitizeAllProxyArg('socks4a://h:1'), null);
-      expect(BuiltinInstanceService.sanitizeAllProxyArg('socks5h://h:1'), null);
+      expect(
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('socks5://h:1'),
+        null,
+      );
+      expect(
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('SOCKS5://h:1'),
+        null,
+      );
+      expect(
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('socks4a://h:1'),
+        null,
+      );
+      expect(
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('socks5h://h:1'),
+        null,
+      );
     });
 
     test('sanitizeAllProxyArg keeps HTTP and scheme-less proxies', () {
       expect(
-        BuiltinInstanceService.sanitizeAllProxyArg('http://127.0.0.1:7890'),
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('http://127.0.0.1:7890'),
         'http://127.0.0.1:7890',
       );
       expect(
-        BuiltinInstanceService.sanitizeAllProxyArg('127.0.0.1:7890'),
+        BuiltinEngineConfiguration.sanitizeAllProxyArg('127.0.0.1:7890'),
         '127.0.0.1:7890',
       );
-      expect(BuiltinInstanceService.sanitizeAllProxyArg('   '), null);
+      expect(BuiltinEngineConfiguration.sanitizeAllProxyArg('   '), null);
     });
 
     test('sanitizedEngineEnvironment strips proxy variables', () {
-      final env = BuiltinInstanceService.sanitizedEngineEnvironment({
+      final env = BuiltinEngineConfiguration.sanitizedEngineEnvironment({
         'PATH': 'C:\\Windows',
         'HTTP_PROXY': 'http://proxy:8080',
         'https_proxy': 'http://proxy:8080',
@@ -408,7 +612,6 @@ void main() {
     });
 
     test('failed detach-share probe is retried instead of cached', () async {
-      final service = BuiltinInstanceService();
       var calls = 0;
 
       Future<ProcessResult> runProbe(String _, List<String> _) async {
@@ -419,19 +622,14 @@ void main() {
         return ProcessResult(1, 0, 'aria2 2.0.0', '');
       }
 
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isFalse,
-      );
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isTrue,
-      );
+      final capabilities = BuiltinEngineCapabilities(runProcess: runProbe);
+
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isFalse);
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isTrue);
       expect(calls, 2);
     });
 
     test('successful unsupported detach-share probe caches false', () async {
-      final service = BuiltinInstanceService();
       var calls = 0;
 
       Future<ProcessResult> runProbe(String _, List<String> _) async {
@@ -439,41 +637,31 @@ void main() {
         return ProcessResult(1, 0, 'aria2 1.37.0', '');
       }
 
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isFalse,
-      );
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isFalse,
-      );
+      final capabilities = BuiltinEngineCapabilities(runProcess: runProbe);
+
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isFalse);
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isFalse);
       expect(calls, 1);
     });
 
     test('recognizes aria2-next version output', () async {
-      final service = BuiltinInstanceService();
-
       Future<ProcessResult> runProbe(String _, List<String> _) async {
         return ProcessResult(1, 0, 'aria2-next version 2.5.5', '');
       }
 
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isTrue,
-      );
+      final capabilities = BuiltinEngineCapabilities(runProcess: runProbe);
+
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isTrue);
     });
 
     test('recognizes aria2 version output with a version label', () async {
-      final service = BuiltinInstanceService();
-
       Future<ProcessResult> runProbe(String _, List<String> _) async {
         return ProcessResult(1, 0, 'aria2 version 2.5.5', '');
       }
 
-      expect(
-        await service.engineSupportsDetachShareOnlyForTesting(runProbe),
-        isTrue,
-      );
+      final capabilities = BuiltinEngineCapabilities(runProcess: runProbe);
+
+      expect(await capabilities.supportsDetachShareOnly('aria2c'), isTrue);
     });
 
     test('recovery arguments isolate port, session, and log paths', () async {
@@ -497,13 +685,18 @@ void main() {
       await File(sessionPath).create();
 
       final service = BuiltinInstanceService()..bindSettings(settings);
-      final normalArgs = service.buildArgsForTesting(detachShareOnly: false);
+      final configuration = BuiltinEngineConfiguration(
+        settings.toBuiltinInstanceSettings(),
+        AppPaths.instance,
+      );
+      addTearDown(service.dispose);
+      final normalArgs = configuration.buildArguments(detachShareOnly: false);
       expect(normalArgs, contains('--rpc-listen-port=16800'));
       expect(normalArgs, contains('--save-session=$sessionPath'));
       expect(normalArgs, contains('--input-file=$sessionPath'));
       expect(normalArgs, contains('--log=$logPath'));
 
-      var recoveryArgs = service.buildArgsForTesting(
+      var recoveryArgs = configuration.buildArguments(
         detachShareOnly: false,
         rpcPortOverride: 16801,
         useRecoveryPaths: true,
@@ -526,7 +719,7 @@ void main() {
       expect(recoveryArgs, isNot(contains('--input-file=$sessionPath')));
 
       await File(recoverySessionPath).create();
-      recoveryArgs = service.buildArgsForTesting(
+      recoveryArgs = configuration.buildArguments(
         detachShareOnly: false,
         rpcPortOverride: 16801,
         useRecoveryPaths: true,
