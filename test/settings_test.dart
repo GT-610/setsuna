@@ -473,4 +473,13 @@ void main() {
       });
     });
   });
+  testWidgets('ignores deferred load notifications after disposal', (
+    tester,
+  ) async {
+    final settings = Settings(repository: MemorySettingsRepository({}));
+    await settings.loadSettings();
+    settings.dispose();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
 }
