@@ -107,6 +107,7 @@ class DownloadDataService extends ChangeNotifier with Loggable {
   Timer? _refreshTimer;
 
   List<DownloadTask> _tasks = [];
+  final Map<String, List<DownloadTask>> _tasksByInstance = {};
   List<DownloadTask> _tasksView = const [];
   bool _isDisposed = false;
   String? _lastError;
@@ -327,19 +328,25 @@ class DownloadDataService extends ChangeNotifier with Loggable {
               instance.status == ConnectionStatus.reconnecting,
         )
         .toList();
+    final connectedIds = connectedInstances
+        .map((instance) => instance.id)
+        .toSet();
     _synchronizeClientCache(connectedInstances);
 
     if (connectedInstances.isEmpty) {
       final hadTasks = _tasks.isNotEmpty;
       final hadError = _lastError != null;
       final hadInstanceStates = _instanceStates.isNotEmpty;
-      _tasks = [];
-      _tasksView = UnmodifiableListView(_tasks);
+      if (hadTasks) {
+        _tasks = [];
+        _tasksView = UnmodifiableListView(_tasks);
+        _tasksVersion++;
+      }
+      _tasksByInstance.clear();
       _instanceStates.clear();
       _globalStats.clear();
       _taskSignatures.clear();
       _detailedRefreshRequired.clear();
-      _tasksVersion++;
       _lastError = null;
       if (hadTasks || hadError || hadInstanceStates) {
         _notifyIfActive();
@@ -384,9 +391,7 @@ class DownloadDataService extends ChangeNotifier with Loggable {
           continue;
         }
 
-        newTasks.addAll(
-          previousTasks.where((task) => task.instanceId == result.instanceId),
-        );
+        newTasks.addAll(_tasksByInstance[result.instanceId] ?? const []);
         final message = result.error.toString();
         errors.add('${result.instanceId}: $message');
         final failures =
@@ -406,34 +411,46 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         );
       }
       _instanceStates.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _globalStats.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _taskSignatures.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _detailedRefreshRequired.removeWhere(
-        (instanceId) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId) => !connectedIds.contains(instanceId),
       );
       _lastError = errors.isEmpty ? null : errors.join('; ');
-      final lowerCaseNames = <String, String>{
-        for (final t in newTasks) t.name: t.name.toLowerCase(),
-      };
-      newTasks.sort((a, b) => _compareTasks(a, b, lowerCaseNames));
-
+      final previousByKey = {for (final task in previousTasks) task.key: task};
+      for (var index = 0; index < newTasks.length; index++) {
+        final task = newTasks[index];
+        final previous = previousByKey[task.key];
+        if (previous != null && task.sameContentAs(previous)) {
+          newTasks[index] = previous;
+        }
+      }
+      final unchanged =
+          newTasks.length == previousTasks.length &&
+          newTasks.every((task) => identical(previousByKey[task.key], task));
       final terminalTransitionInstanceIds = _collectTaskNotifications(
         previousTasks,
         newTasks,
       );
-      _tasks = newTasks;
-      _tasksView = UnmodifiableListView(_tasks);
-      _tasksVersion++;
+      if (!unchanged) {
+        final lowerCaseNames = {
+          for (final task in newTasks) task.name: task.name.toLowerCase(),
+        };
+        newTasks.sort((a, b) => _compareTasks(a, b, lowerCaseNames));
+        _tasks = newTasks;
+        _tasksView = UnmodifiableListView(_tasks);
+        _tasksVersion++;
+        _tasksByInstance.clear();
+        for (final task in _tasks) {
+          (_tasksByInstance[task.instanceId] ??= []).add(task);
+        }
+      }
       _saveSessionsForTerminalTransitions(
         connectedInstances,
         terminalTransitionInstanceIds,
@@ -538,15 +555,14 @@ class DownloadDataService extends ChangeNotifier with Loggable {
       _validateTaskResults(basicResults);
       _updateGlobalStats(instanceId, basicResults);
 
-      final parsedBasic = _parseTaskGroups(basicResults, instanceId, isLocal);
       final basicSignatures = _signaturesFromResults(basicResults);
-      if (_basicSnapshotUnchanged(instanceId, parsedBasic, basicSignatures)) {
+      if (_basicSnapshotUnchanged(instanceId, basicSignatures)) {
         // Nothing visible changed: keep the previously parsed (fully
         // detailed) task objects so list identity stays stable and we skip
         // the expensive files/bittorrent re-fetch.
         return _InstanceTaskRefreshResult.success(
           instance.id,
-          _tasks.where((task) => task.instanceId == instanceId).toList(),
+          _tasksByInstance[instanceId] ?? const [],
         );
       }
 
@@ -681,23 +697,10 @@ class DownloadDataService extends ChangeNotifier with Loggable {
 
   bool _basicSnapshotUnchanged(
     String instanceId,
-    List<DownloadTask> parsedBasic,
-    Map<String, String> basicSignatures,
+    Map<String, String> signatures,
   ) {
-    final store = _taskSignatures[instanceId];
-    if (parsedBasic.isEmpty) {
-      // Only stable when the previous detailed snapshot was empty as well.
-      return store != null && store.isEmpty && basicSignatures.isEmpty;
-    }
-    if (store == null || store.length != basicSignatures.length) {
-      return false;
-    }
-    for (final entry in basicSignatures.entries) {
-      if (store[entry.key] != entry.value) {
-        return false;
-      }
-    }
-    return true;
+    final previous = _taskSignatures[instanceId];
+    return previous != null && _signaturesEqual(previous, signatures);
   }
 
   static const _statusOrder = {

@@ -540,24 +540,31 @@ void main() {
     // The prior refresh needed details, so the next cycle skips the basic
     // projection. An unchanged detailed signature returns to cheap polling.
     final before = service.tasks.single;
+    final beforeList = service.tasks;
+    final beforeVersion = service.tasksVersion;
     await service.refreshTasks(<Aria2Instance>[instance]);
     expect(requestCount, 3);
     expect(requestedProjections.last, isEmpty);
     expect(service.tasks.single.name, 'Ubuntu ISO');
-    expect(identical(service.tasks.single, before), isFalse);
+    expect(identical(service.tasks.single, before), isTrue);
 
+    expect(identical(service.tasks, beforeList), isTrue);
+    expect(service.tasksVersion, beforeVersion);
     final stable = service.tasks.single;
     await service.refreshTasks(<Aria2Instance>[instance]);
     expect(requestCount, 4);
     expect(requestedProjections.last, Aria2RpcClient.basicTaskFields);
     expect(identical(service.tasks.single, stable), isTrue);
 
+    expect(identical(service.tasks, beforeList), isTrue);
+    expect(service.tasksVersion, beforeVersion);
     (fullTask['files'] as List).single['selected'] = 'false';
     service.invalidateTaskDetails(instance.id);
     await service.refreshTasks(<Aria2Instance>[instance]);
     expect(requestCount, 5);
     expect(requestedProjections.last, isEmpty);
     expect(service.tasks.single.files!.single['selected'], 'false');
+    expect(service.tasksVersion, beforeVersion + 1);
     expect(identical(service.tasks.single, before), isFalse);
 
     service.dispose();
