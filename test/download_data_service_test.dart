@@ -62,11 +62,6 @@ void main() {
       expect(service.tasks, isEmpty);
     });
 
-    test('isRefreshing is false before initialization', () {
-      final service = DownloadDataService();
-      expect(service.isRefreshing, isFalse);
-    });
-
     test('lastError is null before initialization', () {
       final service = DownloadDataService();
       expect(service.lastError, isNull);

@@ -28,8 +28,6 @@ class SingleInstanceService with Loggable {
   Future<void> Function()? _onActivate;
   bool _activationPending = false;
 
-  bool get isPrimary => _server != null;
-
   int get port => _server?.port ?? _port;
 
   Future<SingleInstanceAcquireResult> acquire() async {

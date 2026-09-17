@@ -51,9 +51,10 @@ void main() {
     root = await Directory.systemTemp.createTemp('setsuna_repository_test_');
     support = Directory(p.join(root.path, 'support'));
     legacy = Directory(p.join(root.path, 'legacy'));
-    paths = AppPaths.testing(
+    paths = AppPaths(
       supportDirectory: support,
       legacyPortableDirectory: legacy,
+      bundledCoreDirectory: Directory(p.join(legacy.path, "core")),
     );
     await paths.ensureDirectories();
   });

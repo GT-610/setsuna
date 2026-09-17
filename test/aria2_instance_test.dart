@@ -242,7 +242,7 @@ void main() {
       });
     });
 
-    group('normalizedRpcPath', () {
+    group('rpcEndpoint.rpcPath', () {
       test('returns jsonrpc for empty path', () {
         final instance = Aria2Instance(
           id: '1',
@@ -253,7 +253,7 @@ void main() {
           port: 6800,
           rpcPath: '',
         );
-        expect(instance.normalizedRpcPath, 'jsonrpc');
+        expect(instance.rpcEndpoint.rpcPath, 'jsonrpc');
       });
 
       test('returns jsonrpc for whitespace-only path', () {
@@ -266,7 +266,7 @@ void main() {
           port: 6800,
           rpcPath: '   ',
         );
-        expect(instance.normalizedRpcPath, 'jsonrpc');
+        expect(instance.rpcEndpoint.rpcPath, 'jsonrpc');
       });
 
       test('strips leading and trailing slashes', () {
@@ -279,7 +279,7 @@ void main() {
           port: 6800,
           rpcPath: '/custom/rpc/',
         );
-        expect(instance.normalizedRpcPath, 'custom/rpc');
+        expect(instance.rpcEndpoint.rpcPath, 'custom/rpc');
       });
 
       test('collapses multiple slashes', () {
@@ -292,7 +292,7 @@ void main() {
           port: 6800,
           rpcPath: '///a///b///',
         );
-        expect(instance.normalizedRpcPath, 'a/b');
+        expect(instance.rpcEndpoint.rpcPath, 'a/b');
       });
     });
 

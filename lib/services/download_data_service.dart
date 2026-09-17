@@ -108,7 +108,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
 
   List<DownloadTask> _tasks = [];
   List<DownloadTask> _tasksView = const [];
-  bool _isRefreshing = false;
   bool _isDisposed = false;
   String? _lastError;
   final List<DownloadTaskNotification> _pendingNotifications = [];
@@ -132,7 +131,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
 
   List<DownloadTask> get tasks => _tasksView;
   int get tasksVersion => _tasksVersion;
-  bool get isRefreshing => _isRefreshing;
   String? get lastError => _lastError;
   Map<String, InstanceRefreshState> get instanceStates =>
       Map.unmodifiable(_instanceStates);
@@ -350,7 +348,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     }
 
     try {
-      _isRefreshing = true;
       _lastError = null;
       final previousTasks = _tasks;
 
@@ -450,8 +447,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         stackTrace: stackTrace,
       );
       _notifyIfActive();
-    } finally {
-      _isRefreshing = false;
     }
   }
 
