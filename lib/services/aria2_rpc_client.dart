@@ -577,6 +577,7 @@ class Aria2RpcClient with Loggable {
     'status',
     'totalLength',
     'completedLength',
+    'uploadLength',
     'uploadSpeed',
     'downloadSpeed',
     'connections',

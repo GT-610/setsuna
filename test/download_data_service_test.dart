@@ -392,6 +392,7 @@ void main() {
       'status': 'active',
       'totalLength': '100',
       'completedLength': '10',
+      'uploadLength': '1',
       'downloadSpeed': '5',
       'uploadSpeed': '1',
       'dir': '/downloads',
@@ -478,13 +479,20 @@ void main() {
 
     expect(identical(service.tasks, beforeList), isTrue);
     expect(service.tasksVersion, beforeVersion);
+    fullTask['uploadLength'] = '2';
+    await service.refreshTasks(<Aria2Instance>[instance]);
+    expect(requestCount, 6);
+    expect(requestedProjections.last, isEmpty);
+    expect(service.tasks.single.uploadLengthBytes, 2);
+    expect(service.tasksVersion, beforeVersion + 1);
+
     (fullTask['files'] as List).single['selected'] = 'false';
     service.invalidateTaskDetails(instance.id);
     await service.refreshTasks(<Aria2Instance>[instance]);
-    expect(requestCount, 5);
+    expect(requestCount, 7);
     expect(requestedProjections.last, isEmpty);
     expect(service.tasks.single.files!.single['selected'], 'false');
-    expect(service.tasksVersion, beforeVersion + 1);
+    expect(service.tasksVersion, beforeVersion + 2);
     expect(identical(service.tasks.single, before), isFalse);
 
     service.dispose();
