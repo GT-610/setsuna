@@ -7,7 +7,8 @@ import 'package:setsuna/models/settings.dart';
 import 'package:setsuna/services/instance_manager.dart';
 import 'memory_settings_repository.dart';
 
-const dialogLauncherKey = Key('dialogLauncher');
+// ignore: constant_identifier_names
+const DIALOG_LAUNCHER_KEY = Key('dialogLauncher');
 
 class ControlledSettingsRepository extends MemorySettingsRepository {
   ControlledSettingsRepository() : super(<String, dynamic>{});
@@ -49,7 +50,7 @@ Widget settingsTestApp(Settings settings, Widget child) {
 Widget dialogLauncher(void Function(BuildContext context) showDialog) {
   return Builder(
     builder: (context) => IconButton(
-      key: dialogLauncherKey,
+      key: DIALOG_LAUNCHER_KEY,
       onPressed: () => showDialog(context),
       icon: const Icon(Icons.open_in_new),
     ),

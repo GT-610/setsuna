@@ -29,7 +29,7 @@ void main() {
       await tester.pumpAndSettle();
       final l10n = testL10n(tester);
 
-      await tester.tap(find.byKey(dialogLauncherKey));
+      await tester.tap(find.byKey(DIALOG_LAUNCHER_KEY));
       await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(TextButton, l10n.fileCategoryAddRule),
@@ -74,7 +74,7 @@ void main() {
       await tester.pumpAndSettle();
       final l10n = testL10n(tester);
 
-      await tester.tap(find.byKey(dialogLauncherKey));
+      await tester.tap(find.byKey(DIALOG_LAUNCHER_KEY));
       await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(TextButton, l10n.fileCategoryAddRule),
@@ -114,7 +114,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final l10n = testL10n(tester);
-      await tester.tap(find.byKey(dialogLauncherKey));
+      await tester.tap(find.byKey(DIALOG_LAUNCHER_KEY));
       await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(TextButton, l10n.fileCategoryAddRule),

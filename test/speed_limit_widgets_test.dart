@@ -109,7 +109,7 @@ void main() {
       await tester.pumpAndSettle();
       final l10n = testL10n(tester);
 
-      await tester.tap(find.byKey(dialogLauncherKey));
+      await tester.tap(find.byKey(DIALOG_LAUNCHER_KEY));
       await tester.pumpAndSettle();
       expect(find.text(l10n.maxOverallDownloadSpeed), findsOneWidget);
       expect(find.text(l10n.maxOverallUploadSpeed), findsOneWidget);
@@ -145,7 +145,7 @@ void main() {
       await tester.pumpAndSettle();
       final l10n = testL10n(tester);
 
-      await tester.tap(find.byKey(dialogLauncherKey));
+      await tester.tap(find.byKey(DIALOG_LAUNCHER_KEY));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, '256');
       repository.nextSaveError = StateError('save failed');
