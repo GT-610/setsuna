@@ -268,6 +268,8 @@ class InstanceManager extends ChangeNotifier with Loggable {
       throw ArgumentError('Cannot delete the built-in instance');
     if (_instances.length <= 1)
       throw StateError('Cannot delete the only instance');
+    if (!_instances.any((instance) => instance.id == instanceId))
+      throw StateError('Cannot find instance to delete');
     await _persistAndPublish(
       _instances.where((i) => i.id != instanceId).toList(),
     );

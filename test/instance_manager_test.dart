@@ -79,6 +79,18 @@ void main() {
     },
   );
 
+  test('rejects deleting an unknown instance', () async {
+    await manager.addInstance(_instance('one'));
+    await manager.addInstance(_instance('two'));
+    final savedCount = repository.saved.length;
+
+    await expectLater(manager.deleteInstance('missing'), throwsStateError);
+
+    expect(manager.instances.map((instance) => instance.id), ['one', 'two']);
+    expect(repository.saved.length, savedCount);
+    expect(repository.deleted, isEmpty);
+  });
+
   test('does not publish a save completed after disposal', () async {
     repository.gate = Completer<void>();
     var notifications = 0;
