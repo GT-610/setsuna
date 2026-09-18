@@ -8,16 +8,11 @@ import '../models/settings.dart';
 import '../utils/logging.dart';
 
 class StartupIntegrationService with Loggable {
-  static final StartupIntegrationService _instance =
-      StartupIntegrationService._internal();
-
+  StartupIntegrationService({LaunchAtStartup? launcher})
+    : _launcher = launcher ?? launchAtStartup;
+  static final instance = StartupIntegrationService();
+  final LaunchAtStartup _launcher;
   bool _isSetup = false;
-
-  factory StartupIntegrationService() {
-    return _instance;
-  }
-
-  StartupIntegrationService._internal();
 
   bool get isSupported =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
@@ -27,7 +22,7 @@ class StartupIntegrationService with Loggable {
       return;
     }
 
-    launchAtStartup.setup(
+    _launcher.setup(
       appName: kAppName,
       appPath: Platform.resolvedExecutable,
       packageName: kAppPackageName,
@@ -41,18 +36,22 @@ class StartupIntegrationService with Loggable {
     }
 
     await initialize();
-    final currentlyEnabled = await launchAtStartup.isEnabled();
+    final currentlyEnabled = await _launcher.isEnabled();
     if (currentlyEnabled == enabled) {
       return;
     }
 
     if (enabled) {
-      await launchAtStartup.enable();
+      if (!await _launcher.enable()) {
+        throw StateError('Failed to enable run-at-startup');
+      }
       i('Run-at-startup enabled');
       return;
     }
 
-    await launchAtStartup.disable();
+    if (!await _launcher.disable()) {
+      throw StateError('Failed to disable run-at-startup');
+    }
     i('Run-at-startup disabled');
   }
 

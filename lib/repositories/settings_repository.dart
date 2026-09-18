@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../services/credential_store.dart';
 import '../utils/app_paths.dart';
 import '../utils/atomic_file.dart';
+import '../utils/serial_executor.dart';
 import '../utils/logging.dart';
 
 class SettingsLoadResult {
@@ -24,6 +25,7 @@ class SettingsRepository with Loggable {
       _credentialStore = credentialStore ?? SecureCredentialStore.instance;
 
   static const int schemaVersion = 2;
+  final _writes = SerialExecutor();
 
   final AppPaths? _providedPaths;
   final CredentialStore _credentialStore;
@@ -98,6 +100,16 @@ class SettingsRepository with Loggable {
   }
 
   Future<void> save(
+    Map<String, dynamic> values, {
+    bool credentialsBlocked = false,
+  }) {
+    final snapshot = jsonDecode(jsonEncode(values)) as Map<String, dynamic>;
+    return _writes.run(
+      () => _save(snapshot, credentialsBlocked: credentialsBlocked),
+    );
+  }
+
+  Future<void> _save(
     Map<String, dynamic> values, {
     bool credentialsBlocked = false,
   }) async {

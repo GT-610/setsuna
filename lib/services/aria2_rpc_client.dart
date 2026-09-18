@@ -41,20 +41,6 @@ class RpcResultIndeterminateException extends RpcException {
     : super('The result of $method is unknown because the connection closed');
 }
 
-class Aria2RpcNotification {
-  const Aria2RpcNotification({required this.method, required this.params});
-
-  final String method;
-  final List<dynamic> params;
-
-  String? get gid {
-    if (params.isEmpty || params.first is! Map) {
-      return null;
-    }
-    return (params.first as Map)['gid']?.toString();
-  }
-}
-
 class _PendingRpcRequest {
   _PendingRpcRequest({required this.completer, required this.generation});
 
@@ -78,14 +64,13 @@ class Aria2RpcClient with Loggable {
   StreamSubscription? _webSocketSubscription;
   Future<void>? _webSocketInitFuture;
   final Map<String, _PendingRpcRequest> _pendingRequests = {};
-  final StreamController<Aria2RpcNotification>? _notificationController;
+  final StreamController<String>? _notificationController;
   final bool _isWebSocket;
   bool _isClosed = false;
   int _connectionGeneration = 0;
 
-  Stream<Aria2RpcNotification> get notifications =>
-      _notificationController?.stream ??
-      const Stream<Aria2RpcNotification>.empty();
+  Stream<String> get notifications =>
+      _notificationController?.stream ?? const Stream<String>.empty();
 
   /// Factory method to create appropriate client based on protocol
   factory Aria2RpcClient(
@@ -121,7 +106,7 @@ class Aria2RpcClient with Loggable {
        _retryDelay = retryDelay,
        _maximumAttempts = maximumAttempts,
        _notificationController = isWebSocket
-           ? StreamController<Aria2RpcNotification>.broadcast()
+           ? StreamController<String>.broadcast()
            : null,
        _httpClient = isWebSocket ? null : http.Client();
 
@@ -158,7 +143,7 @@ class Aria2RpcClient with Loggable {
 
         final response = await client
             .post(
-              Uri.parse(_buildRpcUrl()),
+              Uri.parse(instance.rpcUrl),
               headers: buildHttpHeaders(),
               body: jsonEncode(requestBody),
             )
@@ -190,6 +175,13 @@ class Aria2RpcClient with Loggable {
     http.Response response,
     String requestId,
   ) {
+    if (response.statusCode == HttpStatus.unauthorized ||
+        response.statusCode == HttpStatus.forbidden) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw RpcException('aria2 returned HTTP ${response.statusCode}');
+    }
     Object? decoded;
     try {
       decoded = jsonDecode(response.body);
@@ -204,13 +196,8 @@ class Aria2RpcClient with Loggable {
       throw const RpcException('aria2 returned an invalid JSON-RPC response');
     }
     final data = Map<String, dynamic>.from(decoded);
-    if (_isUnauthorizedResponse(data) ||
-        response.statusCode == HttpStatus.unauthorized ||
-        response.statusCode == HttpStatus.forbidden) {
+    if (_isUnauthorizedResponse(data)) {
       throw UnauthorizedException();
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw RpcException('aria2 returned HTTP ${response.statusCode}');
     }
     return _validateRpcResponse(data, requestId);
   }
@@ -328,10 +315,24 @@ class Aria2RpcClient with Loggable {
 
     final generation = ++_connectionGeneration;
     try {
-      final socket = await WebSocket.connect(
-        _buildRpcUrl(),
+      var acceptingConnection = true;
+      final connection = WebSocket.connect(
+        instance.rpcUrl,
         headers: buildHttpHeaders(),
-      ).timeout(_requestTimeout);
+      );
+      unawaited(
+        connection.then<void>((socket) {
+          if (!acceptingConnection) {
+            unawaited(_closeWebSocket(socket));
+          }
+        }, onError: (Object _, StackTrace _) {}),
+      );
+      final WebSocket socket;
+      try {
+        socket = await connection.timeout(_requestTimeout);
+      } finally {
+        acceptingConnection = false;
+      }
       if (_isClosed || generation != _connectionGeneration) {
         await _closeWebSocket(socket);
         throw const ConnectionFailedException();
@@ -376,12 +377,7 @@ class Aria2RpcClient with Loggable {
         final method = response['method'];
         final params = response['params'];
         if (method is String && params is List) {
-          _notificationController?.add(
-            Aria2RpcNotification(
-              method: method,
-              params: List<dynamic>.from(params),
-            ),
-          );
+          _notificationController?.add(method);
         }
         return;
       }
@@ -549,20 +545,14 @@ class Aria2RpcClient with Loggable {
       if (response.containsKey('result') &&
           response['result'] is List<dynamic>) {
         final results = response['result'] as List<dynamic>;
-        return results.map((item) {
-          try {
-            // Directly judge the content of the item without additional nesting levels
-            final isSuccess = item is List<dynamic>;
-            return {'success': isSuccess, 'data': item};
-          } catch (e, stackTrace) {
-            this.e(
-              'Error processing multicall item for ${instance.name}',
-              error: e,
-              stackTrace: stackTrace,
-            );
-            return {'success': false, 'error': 'Error processing item: $e'};
-          }
-        }).toList();
+        return results
+            .map(
+              (item) => <String, dynamic>{
+                'success': item is List<dynamic>,
+                'data': item,
+              },
+            )
+            .toList();
       }
       e(
         'Received invalid multicall response format from ${instance.name}: $response',
@@ -587,6 +577,7 @@ class Aria2RpcClient with Loggable {
     'status',
     'totalLength',
     'completedLength',
+    'uploadLength',
     'uploadSpeed',
     'downloadSpeed',
     'connections',
@@ -1073,11 +1064,6 @@ class Aria2RpcClient with Loggable {
 
     requestBody['params'] = requestParams;
     return requestBody;
-  }
-
-  /// Build RPC URL
-  String _buildRpcUrl() {
-    return instance.rpcUrl;
   }
 
   @visibleForTesting

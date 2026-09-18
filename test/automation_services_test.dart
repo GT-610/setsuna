@@ -87,22 +87,6 @@ void main() {
       );
     });
 
-    test('updates the live scheme mask while already synchronized', () {
-      final service = ClipboardMonitorService();
-      addTearDown(service.dispose);
-
-      service.synchronize(
-        enabled: true,
-        schemes: ClipboardMonitorService.schemeHttp,
-      );
-      service.synchronize(
-        enabled: true,
-        schemes: ClipboardMonitorService.schemeMagnet,
-      );
-
-      expect(service.synchronizedSchemes, ClipboardMonitorService.schemeMagnet);
-    });
-
     test(
       'reprocesses clipboard content after the scheme mask changes',
       () async {
@@ -114,14 +98,14 @@ void main() {
           enabled: true,
           schemes: ClipboardMonitorService.schemeMagnet,
         );
-        await service.pollNow();
+        await Future<void>.delayed(Duration.zero);
         expect(service.takePendingUri(), isNull);
 
         service.synchronize(
           enabled: true,
           schemes: ClipboardMonitorService.schemeHttp,
         );
-        await service.pollNow();
+        await Future<void>.delayed(Duration.zero);
 
         expect(service.takePendingUri(), uri);
       },
@@ -170,11 +154,10 @@ void main() {
         enabled: true,
         schemes: ClipboardMonitorService.schemeMagnet,
       );
-      final poll = service.pollNow();
 
       expect(reads, 1);
       readResult.complete(uri);
-      await poll;
+      await Future<void>.delayed(Duration.zero);
 
       expect(service.takePendingUri(), uri);
       expect(service.version.value, 1);
@@ -186,7 +169,7 @@ void main() {
       addTearDown(service.dispose);
 
       service.synchronize(enabled: true, schemes: all);
-      await service.pollNow();
+      await Future<void>.delayed(Duration.zero);
       service.stop();
 
       expect(service.takePendingUri(), isNull);

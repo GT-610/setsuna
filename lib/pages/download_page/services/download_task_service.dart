@@ -90,29 +90,17 @@ class DownloadTaskService with Loggable {
     Aria2RpcClient client,
     DownloadTask task, {
     bool deleteDownloadedFiles = false,
-    Future<void> Function()? removeTaskOverride,
-    Future<List<String>> Function(DownloadTask task)? deleteFilesOverride,
   }) async {
     if (task.status == DownloadStatus.stopped) {
-      if (removeTaskOverride != null) {
-        await removeTaskOverride();
-      } else {
-        await client.removeDownloadResult(task.id);
-      }
+      await client.removeDownloadResult(task.id);
     } else {
-      if (removeTaskOverride != null) {
-        await removeTaskOverride();
-      } else {
-        await client.removeTask(task.id);
-      }
+      await client.removeTask(task.id);
     }
 
     var fileDeletionErrors = const <String>[];
     if (deleteDownloadedFiles && task.isLocal) {
       try {
-        fileDeletionErrors = deleteFilesOverride != null
-            ? await deleteFilesOverride(task)
-            : await _deleteDownloadedFiles(task);
+        fileDeletionErrors = await _deleteDownloadedFiles(task);
       } catch (error) {
         fileDeletionErrors = ['$error'];
       }
@@ -563,15 +551,8 @@ class DownloadTaskService with Loggable {
 
   static Future<List<String>> retryTaskWithClient(
     Aria2RpcClient client,
-    DownloadTask task, {
-    Future<Map<String, dynamic>> Function()? getOptionsOverride,
-    Future<String> Function(List<String> uris, Map<String, dynamic> options)?
-    addUriOverride,
-    Future<String?> Function(String gid)? getTaskStatusOverride,
-    Future<String> Function(String gid)? removeTaskOverride,
-    Future<String> Function(String gid)? removeDownloadResultOverride,
-    Future<bool> Function()? saveSessionOverride,
-  }) async {
+    DownloadTask task,
+  ) async {
     final sources = buildTaskRetrySources(task);
     if (sources.isEmpty) {
       throw const RpcException('The original task source is unavailable');
@@ -579,9 +560,7 @@ class DownloadTaskService with Loggable {
 
     final options = <String, dynamic>{};
     try {
-      final currentOptions = getOptionsOverride != null
-          ? await getOptionsOverride()
-          : await client.getOption(task.id);
+      final currentOptions = await client.getOption(task.id);
       for (final key in _portableRetryOptionKeys) {
         final value = currentOptions[key];
         if (value == null || value is String && value.trim().isEmpty) {
@@ -621,9 +600,7 @@ class DownloadTaskService with Loggable {
         if (!isBitTorrent && source.outputName != null) {
           sourceOptions['out'] = source.outputName;
         }
-        final gid = addUriOverride != null
-            ? await addUriOverride(source.uris, sourceOptions)
-            : await client.addUri(source.uris, sourceOptions);
+        final gid = await client.addUri(source.uris, sourceOptions);
         createdGids.add(gid);
       }
     } catch (error, stackTrace) {
@@ -634,9 +611,7 @@ class DownloadTaskService with Loggable {
         try {
           String? status;
           try {
-            status = getTaskStatusOverride != null
-                ? await getTaskStatusOverride(gid)
-                : (await client.getTaskStatus(gid))['status']?.toString();
+            status = (await client.getTaskStatus(gid))['status']?.toString();
           } catch (statusError, statusStackTrace) {
             _logger.w(
               'Failed to inspect partially retried task $gid; using active-task rollback',
@@ -647,13 +622,7 @@ class DownloadTaskService with Loggable {
           final isStopped =
               status == 'complete' || status == 'error' || status == 'removed';
           if (isStopped) {
-            if (removeDownloadResultOverride != null) {
-              await removeDownloadResultOverride(gid);
-            } else {
-              await client.removeDownloadResult(gid);
-            }
-          } else if (removeTaskOverride != null) {
-            await removeTaskOverride(gid);
+            await client.removeDownloadResult(gid);
           } else {
             await client.removeTask(gid);
           }
@@ -670,11 +639,7 @@ class DownloadTaskService with Loggable {
 
     if (task.status == DownloadStatus.stopped) {
       try {
-        if (removeDownloadResultOverride != null) {
-          await removeDownloadResultOverride(task.id);
-        } else {
-          await client.removeDownloadResult(task.id);
-        }
+        await client.removeDownloadResult(task.id);
       } catch (error, stackTrace) {
         _logger.w(
           'Retried task ${task.id}, but failed to remove original result record',
@@ -685,11 +650,7 @@ class DownloadTaskService with Loggable {
     }
 
     try {
-      if (saveSessionOverride != null) {
-        await saveSessionOverride();
-      } else {
-        await client.saveSession();
-      }
+      await client.saveSession();
     } catch (error, stackTrace) {
       _logger.w(
         'Retried task ${task.id}, but failed to save the aria2 session',
@@ -734,6 +695,12 @@ class DownloadTaskService with Loggable {
     }
 
     final baseDir = _normalizePath(dir);
+    if (await FileSystemEntity.type(baseDir) == FileSystemEntityType.notFound) {
+      return const [];
+    }
+    final resolvedBase = _normalizePath(
+      await Directory(baseDir).resolveSymbolicLinks(),
+    );
     final targets = <String>{};
 
     if (task.files != null && task.files!.isNotEmpty) {
@@ -773,6 +740,14 @@ class DownloadTaskService with Loggable {
           target,
           followLinks: false,
         );
+        if (entityType == FileSystemEntityType.notFound) {
+          continue;
+        }
+        if (p.equals(target, baseDir) ||
+            !await _hasSafeParent(target, resolvedBase)) {
+          failedTargets.add('Skipped path outside base directory: $target');
+          continue;
+        }
         switch (entityType) {
           case FileSystemEntityType.file:
             await File(target).delete();
@@ -807,7 +782,11 @@ class DownloadTaskService with Loggable {
     for (final parent
         in parentDirectories.toList()
           ..sort((left, right) => right.length.compareTo(left.length))) {
-      await _cleanupEmptyDirectories(parent, baseDir);
+      try {
+        await _cleanupEmptyDirectories(parent, baseDir, resolvedBase);
+      } on FileSystemException catch (error) {
+        failedTargets.add('$parent ($error)');
+      }
     }
 
     return failedTargets;
@@ -816,12 +795,13 @@ class DownloadTaskService with Loggable {
   static Future<void> _cleanupEmptyDirectories(
     String startPath,
     String stopAtPath,
+    String resolvedBase,
   ) async {
     var currentPath = _normalizePath(startPath);
     final stopPath = _normalizePath(stopAtPath);
 
     while (_isWithinBaseDirectory(currentPath, stopPath) &&
-        currentPath != stopPath) {
+        !p.equals(currentPath, stopPath)) {
       final directory = Directory(currentPath);
       final entityType = await FileSystemEntity.type(
         currentPath,
@@ -830,13 +810,19 @@ class DownloadTaskService with Loggable {
       if (entityType == FileSystemEntityType.link) {
         break;
       }
-      if (!directory.existsSync()) {
+      if (entityType == FileSystemEntityType.notFound) {
         currentPath = _normalizePath(directory.parent.path);
         continue;
       }
 
-      final children = directory.listSync();
-      if (children.isNotEmpty) {
+      if (!await _hasSafeParent(currentPath, resolvedBase) ||
+          !_isWithinBaseDirectory(
+            await directory.resolveSymbolicLinks(),
+            resolvedBase,
+          )) {
+        break;
+      }
+      if (!await directory.list(followLinks: false).isEmpty) {
         break;
       }
 
@@ -845,27 +831,16 @@ class DownloadTaskService with Loggable {
     }
   }
 
+  static Future<bool> _hasSafeParent(String target, String resolvedBase) async {
+    final parent = await Directory(p.dirname(target)).resolveSymbolicLinks();
+    return _isWithinBaseDirectory(parent, resolvedBase);
+  }
+
   static bool _isWithinBaseDirectory(String targetPath, String baseDirPath) {
-    final normalizedTarget = _normalizePath(targetPath);
-    final normalizedBase = _normalizePath(baseDirPath);
-    return normalizedTarget == normalizedBase ||
-        normalizedTarget.startsWith('$normalizedBase${Platform.pathSeparator}');
+    final target = _normalizePath(targetPath);
+    final base = _normalizePath(baseDirPath);
+    return p.equals(target, base) || p.isWithin(base, target);
   }
 
-  static String _normalizePath(String path) {
-    var normalized = p.canonicalize(p.absolute(path));
-    if (normalized.length > 1 && normalized.endsWith(Platform.pathSeparator)) {
-      normalized = normalized.substring(0, normalized.length - 1);
-    }
-    return Platform.isWindows ? normalized.toLowerCase() : normalized;
-  }
-
-  static bool isWithinBaseDirectoryForTesting(
-    String targetPath,
-    String baseDirPath,
-  ) => _isWithinBaseDirectory(targetPath, baseDirPath);
-
-  static Future<List<String>> deleteDownloadedFilesForTesting(
-    DownloadTask task,
-  ) => _deleteDownloadedFiles(task);
+  static String _normalizePath(String path) => p.normalize(p.absolute(path));
 }

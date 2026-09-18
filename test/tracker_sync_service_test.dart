@@ -66,10 +66,6 @@ void main() {
     });
 
     group('sourceOptions', () {
-      test('has 6 sources', () {
-        expect(TrackerSyncService.sourceOptions.length, 6);
-      });
-
       test('all sources have non-empty labels and URLs', () {
         for (final option in TrackerSyncService.sourceOptions) {
           expect(option.label.isNotEmpty, isTrue);

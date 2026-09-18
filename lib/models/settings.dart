@@ -18,6 +18,18 @@ class Settings extends ChangeNotifier with Loggable {
 
   final SettingsRepository _repository;
   bool _credentialsBlocked = false;
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   static const String _defaultTrackerSource =
       'https://fastly.jsdelivr.net/gh/ngosang/trackerslist/trackers_best_ip.txt';

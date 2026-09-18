@@ -25,13 +25,16 @@ String _redactSensitiveText(String value) {
   );
   redacted = redacted.replaceAllMapped(
     RegExp(
-      r'(--(?:rpc-secret|rpc-user|rpc-passwd)=)([^\s]+)',
+      r'(--(?:rpc-secret|rpc-user|rpc-passwd|all-proxy|http-proxy|https-proxy|ftp-proxy)=)([^\s]+)',
       caseSensitive: false,
     ),
     (match) => '${match.group(1)}[REDACTED]',
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(r'(authorization\s*[:=]\s*)([^\r\n,}]+)', caseSensitive: false),
+    RegExp(
+      r'''((?:authorization|proxy-authorization|cookie|set-cookie|x-api-key)["']?\s*[:=]\s*)([^\r\n}]+)''',
+      caseSensitive: false,
+    ),
     (match) => '${match.group(1)}[REDACTED]',
   );
   redacted = redacted.replaceAllMapped(
@@ -41,7 +44,10 @@ String _redactSensitiveText(String value) {
     ),
     (match) => '${match.group(1)}[REDACTED]${match.group(3)}',
   );
-  return redacted;
+  return redacted.replaceAllMapped(
+    RegExp(r'([a-z][a-z0-9+.-]*://)([^\s/@]+@)', caseSensitive: false),
+    (match) => '${match.group(1)}[REDACTED]@',
+  );
 }
 
 void initializeAppLogging({Level? level}) {

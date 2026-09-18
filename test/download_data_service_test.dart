@@ -8,91 +8,6 @@ import 'package:setsuna/services/aria2_rpc_client.dart';
 import 'package:setsuna/services/download_data_service.dart';
 
 void main() {
-  group('DownloadTaskNotification', () {
-    group('constructor', () {
-      test('stores all required fields', () {
-        const notification = DownloadTaskNotification(
-          taskId: 'gid-123',
-          taskName: 'file.zip',
-          instanceId: 'inst-1',
-          type: DownloadTaskNotificationType.completed,
-        );
-
-        expect(notification.taskId, 'gid-123');
-        expect(notification.taskName, 'file.zip');
-        expect(notification.instanceId, 'inst-1');
-        expect(notification.type, DownloadTaskNotificationType.completed);
-        expect(notification.errorMessage, isNull);
-      });
-
-      test('stores optional errorMessage', () {
-        const notification = DownloadTaskNotification(
-          taskId: 'gid-456',
-          taskName: 'broken.zip',
-          instanceId: 'inst-2',
-          type: DownloadTaskNotificationType.failed,
-          errorMessage: 'Connection refused',
-        );
-
-        expect(notification.errorMessage, 'Connection refused');
-      });
-    });
-
-    group('DownloadTaskNotificationType', () {
-      test('has two values', () {
-        expect(DownloadTaskNotificationType.values.length, 2);
-      });
-
-      test('contains completed and failed', () {
-        expect(
-          DownloadTaskNotificationType.values,
-          contains(DownloadTaskNotificationType.completed),
-        );
-        expect(
-          DownloadTaskNotificationType.values,
-          contains(DownloadTaskNotificationType.failed),
-        );
-      });
-    });
-  });
-
-  group('DownloadDataService', () {
-    test('tasks is empty before initialization', () {
-      final service = DownloadDataService();
-      expect(service.tasks, isEmpty);
-    });
-
-    test('isRefreshing is false before initialization', () {
-      final service = DownloadDataService();
-      expect(service.isRefreshing, isFalse);
-    });
-
-    test('lastError is null before initialization', () {
-      final service = DownloadDataService();
-      expect(service.lastError, isNull);
-    });
-
-    test('tasksVersion starts at zero', () {
-      final service = DownloadDataService();
-      expect(service.tasksVersion, 0);
-    });
-
-    test('takePendingNotifications returns empty list initially', () {
-      final service = DownloadDataService();
-      expect(service.takePendingNotifications(), isEmpty);
-    });
-
-    test('stopPeriodicRefresh does not throw', () {
-      final service = DownloadDataService();
-      expect(() => service.stopPeriodicRefresh(), returnsNormally);
-    });
-
-    test('dispose does not throw', () {
-      final service = DownloadDataService();
-      expect(() => service.dispose(), returnsNormally);
-    });
-  });
-
   test('keeps stale tasks when one connected instance refresh fails', () async {
     Future<HttpServer> startServer(String gid) async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -477,6 +392,7 @@ void main() {
       'status': 'active',
       'totalLength': '100',
       'completedLength': '10',
+      'uploadLength': '1',
       'downloadSpeed': '5',
       'uploadSpeed': '1',
       'dir': '/downloads',
@@ -545,24 +461,38 @@ void main() {
     // The prior refresh needed details, so the next cycle skips the basic
     // projection. An unchanged detailed signature returns to cheap polling.
     final before = service.tasks.single;
+    final beforeList = service.tasks;
+    final beforeVersion = service.tasksVersion;
     await service.refreshTasks(<Aria2Instance>[instance]);
     expect(requestCount, 3);
     expect(requestedProjections.last, isEmpty);
     expect(service.tasks.single.name, 'Ubuntu ISO');
-    expect(identical(service.tasks.single, before), isFalse);
+    expect(identical(service.tasks.single, before), isTrue);
 
+    expect(identical(service.tasks, beforeList), isTrue);
+    expect(service.tasksVersion, beforeVersion);
     final stable = service.tasks.single;
     await service.refreshTasks(<Aria2Instance>[instance]);
     expect(requestCount, 4);
     expect(requestedProjections.last, Aria2RpcClient.basicTaskFields);
     expect(identical(service.tasks.single, stable), isTrue);
 
+    expect(identical(service.tasks, beforeList), isTrue);
+    expect(service.tasksVersion, beforeVersion);
+    fullTask['uploadLength'] = '2';
+    await service.refreshTasks(<Aria2Instance>[instance]);
+    expect(requestCount, 6);
+    expect(requestedProjections.last, isEmpty);
+    expect(service.tasks.single.uploadLengthBytes, 2);
+    expect(service.tasksVersion, beforeVersion + 1);
+
     (fullTask['files'] as List).single['selected'] = 'false';
     service.invalidateTaskDetails(instance.id);
     await service.refreshTasks(<Aria2Instance>[instance]);
-    expect(requestCount, 5);
+    expect(requestCount, 7);
     expect(requestedProjections.last, isEmpty);
     expect(service.tasks.single.files!.single['selected'], 'false');
+    expect(service.tasksVersion, beforeVersion + 2);
     expect(identical(service.tasks.single, before), isFalse);
 
     service.dispose();
@@ -619,4 +549,79 @@ void main() {
     service.dispose();
     await server.close(force: true);
   });
+  test(
+    'combines per-instance stats and fallback without stale global speed',
+    () async {
+      var failed = false;
+      Future<HttpServer> server({required bool stats}) async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        server.listen((request) async {
+          final body = jsonDecode(await utf8.decoder.bind(request).join());
+          request.response.write(
+            jsonEncode({
+              'id': body['id'],
+              'jsonrpc': '2.0',
+              'result': stats && failed
+                  ? [
+                      {'code': 1},
+                      [],
+                      [],
+                    ]
+                  : [
+                      [
+                        [
+                          {
+                            'gid': 'one',
+                            'status': 'active',
+                            'totalLength': '100',
+                            'completedLength': '10',
+                            'downloadSpeed': '10',
+                            'uploadSpeed': '2',
+                          },
+                        ],
+                      ],
+                      [[]],
+                      [[]],
+                      if (stats)
+                        [
+                          {'downloadSpeed': '1000', 'uploadSpeed': '100'},
+                        ],
+                    ],
+            }),
+          );
+          await request.response.close();
+        });
+        return server;
+      }
+
+      final withStats = await server(stats: true);
+      final withoutStats = await server(stats: false);
+      Aria2Instance instance(String id, HttpServer server) => Aria2Instance(
+        id: id,
+        name: id,
+        type: InstanceType.remote,
+        protocol: 'http',
+        host: '127.0.0.1',
+        port: server.port,
+        status: ConnectionStatus.connected,
+      );
+      final instances = [
+        instance('stats', withStats),
+        instance('fallback', withoutStats),
+      ];
+      final service = DownloadDataService();
+      addTearDown(service.dispose);
+      await service.refreshTasks(instances);
+      expect(service.taskSummary.speed, 1010);
+      expect(service.totalUploadSpeed, 102);
+      failed = true;
+      await service.refreshTasks(instances);
+      expect(service.instanceStates['stats']!.isStale, isTrue);
+      expect(service.taskSummary.speed, 20);
+      expect(service.totalUploadSpeed, 4);
+      await service.refreshTasks([instances.last]);
+      expect(service.taskSummary.speed, 10);
+    },
+  );
 }

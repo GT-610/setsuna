@@ -989,7 +989,7 @@ class _SettingsPageState extends State<SettingsPage>
     }
 
     try {
-      await StartupIntegrationService().setEnabled(value);
+      await StartupIntegrationService.instance.setEnabled(value);
     } catch (e, stackTrace) {
       w(
         'Failed to apply run-at-startup preference immediately',
@@ -1049,7 +1049,9 @@ class _SettingsPageState extends State<SettingsPage>
           .reconcileProtocolPreferences(settings);
       var startupPreferenceFailed = false;
       try {
-        await StartupIntegrationService().reconcileStartupPreference(settings);
+        await StartupIntegrationService.instance.reconcileStartupPreference(
+          settings,
+        );
       } catch (e, stackTrace) {
         startupPreferenceFailed = true;
         w(

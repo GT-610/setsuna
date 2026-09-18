@@ -28,31 +28,22 @@ class InstanceRefreshState {
   final DateTime? nextRetryAt;
 }
 
-/// Snapshot of aria2's global stat for a single instance.
+/// Global transfer speeds reported by a single instance.
 class GlobalInstanceStats {
   const GlobalInstanceStats({
     required this.downloadSpeed,
     required this.uploadSpeed,
-    required this.activeCount,
-    required this.waitingCount,
-    required this.stoppedCount,
   });
 
   factory GlobalInstanceStats.fromRpc(Map<String, dynamic> data) {
     return GlobalInstanceStats(
       downloadSpeed: int.tryParse('${data['downloadSpeed']}') ?? 0,
       uploadSpeed: int.tryParse('${data['uploadSpeed']}') ?? 0,
-      activeCount: int.tryParse('${data['numActive']}') ?? 0,
-      waitingCount: int.tryParse('${data['numWaiting']}') ?? 0,
-      stoppedCount: int.tryParse('${data['numStopped']}') ?? 0,
     );
   }
 
   final int downloadSpeed;
   final int uploadSpeed;
-  final int activeCount;
-  final int waitingCount;
-  final int stoppedCount;
 }
 
 /// Aggregated cross-instance counters used by the status bar and tray.
@@ -107,8 +98,8 @@ class DownloadDataService extends ChangeNotifier with Loggable {
   Timer? _refreshTimer;
 
   List<DownloadTask> _tasks = [];
+  final Map<String, List<DownloadTask>> _tasksByInstance = {};
   List<DownloadTask> _tasksView = const [];
-  bool _isRefreshing = false;
   bool _isDisposed = false;
   String? _lastError;
   final List<DownloadTaskNotification> _pendingNotifications = [];
@@ -124,15 +115,13 @@ class DownloadDataService extends ChangeNotifier with Loggable {
   final int _refreshInterval = 1000;
 
   final Map<String, Aria2RpcClient> _clientCache = {};
-  final Map<String, StreamSubscription<Aria2RpcNotification>>
-  _notificationSubscriptions = {};
+  final Map<String, StreamSubscription<String>> _notificationSubscriptions = {};
   List<Aria2Instance> Function()? _connectedInstancesProvider;
   List<Aria2Instance>? _pendingRefreshInstances;
   Future<void>? _refreshLoop;
 
   List<DownloadTask> get tasks => _tasksView;
   int get tasksVersion => _tasksVersion;
-  bool get isRefreshing => _isRefreshing;
   String? get lastError => _lastError;
   Map<String, InstanceRefreshState> get instanceStates =>
       Map.unmodifiable(_instanceStates);
@@ -150,6 +139,14 @@ class DownloadDataService extends ChangeNotifier with Loggable {
       seen = true;
       download += stats.downloadSpeed;
       upload += stats.uploadSpeed;
+    }
+    if (!seen) return null;
+    for (final task in _tasks) {
+      if (_globalStats[task.instanceId] == null &&
+          task.status == DownloadStatus.active) {
+        download += task.downloadSpeedBytes;
+        upload += task.uploadSpeedBytes;
+      }
     }
     return seen ? (downloadSpeed: download, uploadSpeed: upload) : null;
   }
@@ -175,9 +172,11 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     var waiting = 0;
     var resumable = 0;
     var pausable = 0;
+    var fallbackSpeed = 0;
     for (final task in _tasks) {
       if (task.status == DownloadStatus.active) {
         active++;
+        fallbackSpeed += task.downloadSpeedBytes;
       } else if (task.status == DownloadStatus.waiting) {
         waiting++;
       }
@@ -191,12 +190,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         pausable++;
       }
     }
-    final fallbackSpeed = _tasks.fold<int>(
-      0,
-      (sum, task) => task.status == DownloadStatus.active
-          ? sum + task.downloadSpeedBytes
-          : sum,
-    );
     final speed = aggregatedGlobalSpeeds?.downloadSpeed ?? fallbackSpeed;
     return (
       active: active,
@@ -329,19 +322,25 @@ class DownloadDataService extends ChangeNotifier with Loggable {
               instance.status == ConnectionStatus.reconnecting,
         )
         .toList();
+    final connectedIds = connectedInstances
+        .map((instance) => instance.id)
+        .toSet();
     _synchronizeClientCache(connectedInstances);
 
     if (connectedInstances.isEmpty) {
       final hadTasks = _tasks.isNotEmpty;
       final hadError = _lastError != null;
       final hadInstanceStates = _instanceStates.isNotEmpty;
-      _tasks = [];
-      _tasksView = UnmodifiableListView(_tasks);
+      if (hadTasks) {
+        _tasks = [];
+        _tasksView = UnmodifiableListView(_tasks);
+        _tasksVersion++;
+      }
+      _tasksByInstance.clear();
       _instanceStates.clear();
       _globalStats.clear();
       _taskSignatures.clear();
       _detailedRefreshRequired.clear();
-      _tasksVersion++;
       _lastError = null;
       if (hadTasks || hadError || hadInstanceStates) {
         _notifyIfActive();
@@ -350,7 +349,6 @@ class DownloadDataService extends ChangeNotifier with Loggable {
     }
 
     try {
-      _isRefreshing = true;
       _lastError = null;
       final previousTasks = _tasks;
 
@@ -387,9 +385,8 @@ class DownloadDataService extends ChangeNotifier with Loggable {
           continue;
         }
 
-        newTasks.addAll(
-          previousTasks.where((task) => task.instanceId == result.instanceId),
-        );
+        newTasks.addAll(_tasksByInstance[result.instanceId] ?? const []);
+        _globalStats.remove(result.instanceId);
         final message = result.error.toString();
         errors.add('${result.instanceId}: $message');
         final failures =
@@ -409,34 +406,47 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         );
       }
       _instanceStates.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _globalStats.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _taskSignatures.removeWhere(
-        (instanceId, _) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId, _) => !connectedIds.contains(instanceId),
       );
       _detailedRefreshRequired.removeWhere(
-        (instanceId) =>
-            !connectedInstances.any((instance) => instance.id == instanceId),
+        (instanceId) => !connectedIds.contains(instanceId),
       );
       _lastError = errors.isEmpty ? null : errors.join('; ');
-      final lowerCaseNames = <String, String>{
-        for (final t in newTasks) t.name: t.name.toLowerCase(),
-      };
-      newTasks.sort((a, b) => _compareTasks(a, b, lowerCaseNames));
-
-      final terminalTransitionInstanceIds = _collectTaskNotifications(
-        previousTasks,
-        newTasks,
-      );
-      _tasks = newTasks;
-      _tasksView = UnmodifiableListView(_tasks);
-      _tasksVersion++;
+      final previousByKey = {for (final task in previousTasks) task.key: task};
+      for (var index = 0; index < newTasks.length; index++) {
+        final task = newTasks[index];
+        final previous = previousByKey[task.key];
+        if (previous != null &&
+            !identical(task, previous) &&
+            task.sameContentAs(previous)) {
+          newTasks[index] = previous;
+        }
+      }
+      final unchanged =
+          newTasks.length == previousTasks.length &&
+          newTasks.every((task) => identical(previousByKey[task.key], task));
+      final terminalTransitionInstanceIds = unchanged
+          ? const <String>{}
+          : _collectTaskNotifications(previousTasks, newTasks);
+      if (!unchanged) {
+        final lowerCaseNames = {
+          for (final task in newTasks) task.name: task.name.toLowerCase(),
+        };
+        newTasks.sort((a, b) => _compareTasks(a, b, lowerCaseNames));
+        _tasks = newTasks;
+        _tasksView = UnmodifiableListView(_tasks);
+        _tasksVersion++;
+        _tasksByInstance.clear();
+        for (final task in _tasks) {
+          (_tasksByInstance[task.instanceId] ??= []).add(task);
+        }
+      }
       _saveSessionsForTerminalTransitions(
         connectedInstances,
         terminalTransitionInstanceIds,
@@ -450,22 +460,13 @@ class DownloadDataService extends ChangeNotifier with Loggable {
         stackTrace: stackTrace,
       );
       _notifyIfActive();
-    } finally {
-      _isRefreshing = false;
     }
   }
 
-  void _handleRpcNotification(
-    Aria2Instance instance,
-    Aria2RpcNotification notification,
-  ) {
-    if (_isDisposed || !notification.method.startsWith('aria2.on')) {
+  void _handleRpcNotification(Aria2Instance instance, String notification) {
+    if (_isDisposed || !notification.startsWith('aria2.on')) {
       return;
     }
-    logger.fine(
-      'Received ${notification.method} for ${instance.name}'
-      '${notification.gid == null ? '' : ' (${notification.gid})'}',
-    );
     final latestInstances = _connectedInstancesProvider?.call();
     if (latestInstances != null) {
       unawaited(refreshTasks(latestInstances));
@@ -547,22 +548,24 @@ class DownloadDataService extends ChangeNotifier with Loggable {
       _validateTaskResults(basicResults);
       _updateGlobalStats(instanceId, basicResults);
 
-      final parsedBasic = _parseTaskGroups(basicResults, instanceId, isLocal);
       final basicSignatures = _signaturesFromResults(basicResults);
-      if (_basicSnapshotUnchanged(instanceId, parsedBasic, basicSignatures)) {
+      if (_basicSnapshotUnchanged(instanceId, basicSignatures)) {
         // Nothing visible changed: keep the previously parsed (fully
         // detailed) task objects so list identity stays stable and we skip
         // the expensive files/bittorrent re-fetch.
         return _InstanceTaskRefreshResult.success(
           instance.id,
-          _tasks.where((task) => task.instanceId == instanceId).toList(),
+          _tasksByInstance[instanceId] ?? const [],
         );
       }
 
       // Phase 2: the basic projection changed, so re-fetch every field.
       _detailedRefreshRequired.add(instanceId);
-      final detailedResults = await client.getDownloadStatus();
+      final detailedResults = await client.getDownloadStatus(
+        includeGlobalStat: true,
+      );
       _validateTaskResults(detailedResults);
+      _updateGlobalStats(instanceId, detailedResults);
       final parsedDetailed = _parseTaskGroups(
         detailedResults,
         instanceId,
@@ -690,23 +693,10 @@ class DownloadDataService extends ChangeNotifier with Loggable {
 
   bool _basicSnapshotUnchanged(
     String instanceId,
-    List<DownloadTask> parsedBasic,
-    Map<String, String> basicSignatures,
+    Map<String, String> signatures,
   ) {
-    final store = _taskSignatures[instanceId];
-    if (parsedBasic.isEmpty) {
-      // Only stable when the previous detailed snapshot was empty as well.
-      return store != null && store.isEmpty && basicSignatures.isEmpty;
-    }
-    if (store == null || store.length != basicSignatures.length) {
-      return false;
-    }
-    for (final entry in basicSignatures.entries) {
-      if (store[entry.key] != entry.value) {
-        return false;
-      }
-    }
-    return true;
+    final previous = _taskSignatures[instanceId];
+    return previous != null && _signaturesEqual(previous, signatures);
   }
 
   static const _statusOrder = {

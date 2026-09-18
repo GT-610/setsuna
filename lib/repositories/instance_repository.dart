@@ -7,6 +7,7 @@ import '../models/aria2_instance.dart';
 import '../services/credential_store.dart';
 import '../utils/app_paths.dart';
 import '../utils/atomic_file.dart';
+import '../utils/serial_executor.dart';
 import '../utils/logging.dart';
 
 class InstanceLoadResult {
@@ -25,6 +26,7 @@ class InstanceRepository with Loggable {
       _credentialStore = credentialStore ?? SecureCredentialStore.instance;
 
   static const int schemaVersion = 2;
+  final _writes = SerialExecutor();
 
   final AppPaths? _providedPaths;
   final CredentialStore _credentialStore;
@@ -156,6 +158,16 @@ class InstanceRepository with Loggable {
   }
 
   Future<void> save(
+    List<Aria2Instance> instances, {
+    bool credentialsBlocked = false,
+  }) {
+    final snapshot = List<Aria2Instance>.of(instances);
+    return _writes.run(
+      () => _save(snapshot, credentialsBlocked: credentialsBlocked),
+    );
+  }
+
+  Future<void> _save(
     List<Aria2Instance> instances, {
     bool credentialsBlocked = false,
   }) async {

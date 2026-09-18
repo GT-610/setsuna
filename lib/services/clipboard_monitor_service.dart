@@ -86,12 +86,6 @@ class ClipboardMonitorService with Loggable {
     return uri;
   }
 
-  @visibleForTesting
-  int get synchronizedSchemes => _schemes;
-
-  @visibleForTesting
-  Future<void> pollNow() => _tick();
-
   Future<void> _tick() {
     final inFlight = _tickInFlight;
     if (inFlight != null) {
@@ -144,7 +138,6 @@ class ClipboardMonitorService with Loggable {
 
     // Defensive guards against pathological clipboard contents.
     if (content.length > 100000 || content.split('\n').length > 200) {
-      _logger.fine('Ignored oversized clipboard content');
       return;
     }
 

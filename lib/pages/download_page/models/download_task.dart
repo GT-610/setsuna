@@ -66,4 +66,56 @@ class DownloadTask {
     this.numPieces,
     this.isSeeder = false,
   });
+
+  /// Compares observable task data so unchanged polling results can be reused.
+  bool sameContentAs(DownloadTask other) =>
+      id == other.id &&
+      name == other.name &&
+      status == other.status &&
+      taskStatus == other.taskStatus &&
+      progress == other.progress &&
+      downloadSpeed == other.downloadSpeed &&
+      uploadSpeed == other.uploadSpeed &&
+      size == other.size &&
+      completedSize == other.completedSize &&
+      isLocal == other.isLocal &&
+      instanceId == other.instanceId &&
+      connections == other.connections &&
+      numSeeders == other.numSeeders &&
+      dir == other.dir &&
+      totalLengthBytes == other.totalLengthBytes &&
+      completedLengthBytes == other.completedLengthBytes &&
+      uploadLengthBytes == other.uploadLengthBytes &&
+      downloadSpeedBytes == other.downloadSpeedBytes &&
+      uploadSpeedBytes == other.uploadSpeedBytes &&
+      _equalValues(files, other.files) &&
+      bittorrentInfo == other.bittorrentInfo &&
+      _equalValues(trackers, other.trackers) &&
+      _equalValues(uris, other.uris) &&
+      errorMessage == other.errorMessage &&
+      startTime == other.startTime &&
+      bitfield == other.bitfield &&
+      infoHash == other.infoHash &&
+      pieceLength == other.pieceLength &&
+      numPieces == other.numPieces &&
+      isSeeder == other.isSeeder;
+
+  static bool _equalValues(Object? left, Object? right) {
+    if (identical(left, right)) return true;
+    if (left is List && right is List) {
+      if (left.length != right.length) return false;
+      for (var i = 0; i < left.length; i++) {
+        if (!_equalValues(left[i], right[i])) return false;
+      }
+      return true;
+    }
+    if (left is Map && right is Map) {
+      return left.length == right.length &&
+          left.keys.every(
+            (key) =>
+                right.containsKey(key) && _equalValues(left[key], right[key]),
+          );
+    }
+    return left == right;
+  }
 }

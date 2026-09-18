@@ -16,6 +16,11 @@ class TrackerSourceOption {
 }
 
 class TrackerSyncService with Loggable {
+  TrackerSyncService({http.Client? httpClient})
+    : _get = httpClient?.get ?? http.get;
+  final Future<http.Response> Function(Uri, {Map<String, String>? headers})
+  _get;
+
   static const int _maxBtTrackerLength = 6144;
   static const Duration _requestTimeout = Duration(seconds: 10);
   static const Duration _autoSyncInterval = Duration(days: 1);
@@ -53,9 +58,7 @@ class TrackerSyncService with Loggable {
   ];
 
   Future<String> fetchTrackerList(String sourceUrl) async {
-    final response = await http
-        .get(Uri.parse(sourceUrl))
-        .timeout(_requestTimeout);
+    final response = await _get(Uri.parse(sourceUrl)).timeout(_requestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode}');
     }

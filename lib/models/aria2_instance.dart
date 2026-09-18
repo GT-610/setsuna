@@ -251,10 +251,6 @@ class Aria2Instance {
 
   Aria2RpcEndpoint get rpcEndpoint => _rpcEndpoint;
 
-  String get normalizedRpcPath {
-    return rpcEndpoint.rpcPath;
-  }
-
   // Get RPC URL
   String get rpcUrl {
     return rpcEndpoint.url;

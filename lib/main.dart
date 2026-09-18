@@ -81,7 +81,7 @@ Future<void> _initializeApplication(
   await settings.loadSettings();
   BuiltinInstanceService().bindSettings(settings);
   try {
-    await StartupIntegrationService().initialize();
+    await StartupIntegrationService.instance.initialize();
   } catch (e, stackTrace) {
     logger.e(
       'Failed to initialize run-at-startup integration',
