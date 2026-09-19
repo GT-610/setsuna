@@ -24,6 +24,11 @@ enum BuiltinInstanceApplyMode { none, liveApply, restartRequired }
 class BuiltinInstanceService with Loggable {
   static const Duration _rpcShutdownTimeout = Duration(seconds: 5);
 
+  /// Upper bound for the best-effort session save performed during a fast
+  /// application exit. Kept short so quitting the app stays responsive even
+  /// when the engine's RPC endpoint is unresponsive.
+  static const Duration _rpcFastExitTimeout = Duration(seconds: 1);
+
   /// Set when the engine recovered from an RPC port conflict by moving to a
   /// different port. The UI surfaces the message once and clears it.
   static final ValueNotifier<String?> portRecoveryNotice =
@@ -380,9 +385,25 @@ class BuiltinInstanceService with Loggable {
     }
   }
 
-  Future<bool> stopInstance() => _serializeLifecycle(_stopInstance);
+  /// Stops the built-in Aria2 instance.
+  ///
+  /// When [fast] is true the stop is optimized for application shutdown:
+  /// the session is persisted best-effort (bounded by
+  /// [_rpcFastExitTimeout]) and the engine process is terminated
+  /// immediately, skipping the graceful RPC shutdown and the multi-second
+  /// exit-code waits. Mirrors the "fast exit" path used by Motrix
+  /// Next/Rayburst, so quitting the app never blocks on a draining engine.
+  Future<bool> stopInstance({bool fast = false}) {
+    // A fast (app-exit) stop bypasses the lifecycle queue: waiting behind an
+    // in-flight start/stop could add seconds to quitting. The engine is
+    // terminated immediately, and the OS Job Object reaps any straggler.
+    if (fast) {
+      return _stopInstance(fast: true);
+    }
+    return _serializeLifecycle(() => _stopInstance(fast: false));
+  }
 
-  Future<bool> _stopInstance() async {
+  Future<bool> _stopInstance({required bool fast}) async {
     try {
       if (_aria2Process == null && !await _adoptPersistedProcess()) {
         if (await _isRpcReachable()) {
@@ -394,6 +415,17 @@ class BuiltinInstanceService with Loggable {
         }
         w('Built-in Aria2 process is not running');
         await _clearManagedProcessState();
+        return true;
+      }
+
+      if (fast) {
+        // Application exit: persist the session best-effort, then terminate
+        // the engine right away instead of waiting for a graceful shutdown.
+        await _saveSessionForFastExit();
+        await _terminateProcessImmediately();
+        await _clearManagedProcessState();
+        await _cancelProcessOutput();
+        unawaited(_upnpService.shutdown());
         return true;
       }
 
@@ -438,6 +470,59 @@ class BuiltinInstanceService with Loggable {
         stackTrace: stackTrace,
       );
       return false;
+    }
+  }
+
+  /// Persists the engine session during a fast exit, tolerating any failure
+  /// (the process is terminated regardless of the outcome).
+  Future<void> _saveSessionForFastExit() async {
+    final client = Aria2RpcClient(getBuiltinInstanceConfig());
+    try {
+      await client.saveSession().timeout(_rpcFastExitTimeout);
+    } catch (e, stackTrace) {
+      w(
+        'Failed to save the built-in Aria2 session during fast exit; '
+        'terminating the process anyway',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      await client.close();
+    }
+  }
+
+  /// Terminates the engine process without waiting for it to exit. The
+  /// Windows runner additionally reaps it via a kill-on-close Job Object.
+  ///
+  /// An owned child is killed directly; a persisted PID is only killed after
+  /// confirming it still belongs to our engine, so a recycled PID can never
+  /// take down an unrelated process. That validation is bounded by
+  /// [_rpcFastExitTimeout]: if it does not answer in time the PID is left
+  /// alone and cleanup continues, rather than blocking application exit.
+  Future<void> _terminateProcessImmediately() async {
+    final process = _aria2Process;
+    if (process != null) {
+      process.kill();
+      return;
+    }
+    final managedPid = _managedPid;
+    if (managedPid == null) {
+      return;
+    }
+    final bool isExpected;
+    try {
+      isExpected = await ProcessLifecycleService.instance
+          .isExpectedProcess(managedPid, _aria2cPath!)
+          .timeout(_rpcFastExitTimeout);
+    } on TimeoutException {
+      w(
+        'Timed out validating the persisted aria2 PID during fast exit; '
+        'leaving it for OS cleanup',
+      );
+      return;
+    }
+    if (isExpected) {
+      Process.killPid(managedPid);
     }
   }
 
