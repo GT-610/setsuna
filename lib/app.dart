@@ -13,6 +13,7 @@ import 'pages/download_page/enums.dart';
 import 'pages/download_page/models/download_task.dart';
 import 'pages/instance_page/instance_page.dart';
 import 'pages/components/quick_speed_limit_dialog.dart';
+import 'utils/app_motion.dart';
 import 'utils/format_utils.dart';
 import 'utils/windows_font_theme.dart';
 import 'pages/settings_page/settings_page.dart';
@@ -790,8 +791,8 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
       setState(() => _selectedIndex = 0);
       await _pageController.animateToPage(
         0,
-        duration: const Duration(milliseconds: 677),
-        curve: Curves.fastLinearToSlowEaseIn,
+        duration: kPageTransitionDuration,
+        curve: kPageTransitionCurve,
       );
     }
 
@@ -984,8 +985,8 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     setState(() => _selectedIndex = index);
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 677),
-      curve: Curves.fastLinearToSlowEaseIn,
+      duration: kPageTransitionDuration,
+      curve: kPageTransitionCurve,
     );
   }
 
