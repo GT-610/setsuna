@@ -12,13 +12,13 @@ import '../../../services/download_data_service.dart';
 import '../../../services/instance_manager.dart';
 import '../../../utils/format_utils.dart';
 import '../../../utils/logging.dart';
-import '../../../widgets/synced_tab_controller.dart';
 import '../enums.dart';
 import '../models/download_task.dart';
 import '../services/download_task_service.dart';
 import 'task_details_bt_helpers.dart';
 import 'task_details_options_tab.dart';
 import '../utils/task_utils.dart';
+import '../../../widgets/synced_tab_controller.dart';
 
 final _logger = taggedLogger('TaskDetailsDialog');
 
@@ -963,10 +963,9 @@ class TaskDetailsDialog {
                         ),
                       ],
                     );
-                  },
-                ),
-              );
-            },
+                },
+              ),
+            );
           },
         );
       },
