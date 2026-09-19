@@ -312,11 +312,13 @@ class TaskDetailsDialog {
                           ),
                           const SizedBox(height: 12),
                           TabBar(
+                            controller: tabController,
                             tabs: tabs,
                             indicatorSize: TabBarIndicatorSize.tab,
                           ),
                           Expanded(
                             child: TabBarView(
+                              controller: tabController,
                               children: [
                                 SingleChildScrollView(
                                   padding: const EdgeInsets.all(8),

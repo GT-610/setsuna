@@ -515,8 +515,11 @@ class InstanceManager extends ChangeNotifier with Loggable {
     Aria2Instance instance, {
     bool fast = false,
   }) async {
+    // A pending connect can take seconds (engine start, RPC probes); during a
+    // fast exit we do not wait for it, so quitting is not delayed. The engine
+    // is still terminated below and reaped by the OS Job Object on exit.
     final connectionOperation = _connectionOperations[instance.id];
-    if (connectionOperation != null) {
+    if (connectionOperation != null && !fast) {
       await connectionOperation;
     }
     // For built-in instances, stop the Aria2 process

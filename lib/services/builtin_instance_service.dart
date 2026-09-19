@@ -770,8 +770,15 @@ class BuiltinInstanceService with Loggable {
   /// immediately, skipping the graceful RPC shutdown and the multi-second
   /// exit-code waits. Mirrors the "fast exit" path used by Motrix
   /// Next/Rayburst, so quitting the app never blocks on a draining engine.
-  Future<bool> stopInstance({bool fast = false}) =>
-      _serializeLifecycle(() => _stopInstance(fast: fast));
+  Future<bool> stopInstance({bool fast = false}) {
+    // A fast (app-exit) stop bypasses the lifecycle queue: waiting behind an
+    // in-flight start/stop could add seconds to quitting. The engine is
+    // terminated immediately, and the OS Job Object reaps any straggler.
+    if (fast) {
+      return _stopInstance(fast: true);
+    }
+    return _serializeLifecycle(() => _stopInstance(fast: false));
+  }
 
   Future<bool> _stopInstance({required bool fast}) async {
     try {
@@ -792,7 +799,7 @@ class BuiltinInstanceService with Loggable {
         // Application exit: persist the session best-effort, then terminate
         // the engine right away instead of waiting for a graceful shutdown.
         await _saveSessionForFastExit();
-        _terminateProcessImmediately();
+        await _terminateProcessImmediately();
         await _clearManagedProcessState();
         await _cancelProcessOutput();
         unawaited(_upnpService.shutdown());
@@ -863,14 +870,22 @@ class BuiltinInstanceService with Loggable {
 
   /// Terminates the engine process without waiting for it to exit. The
   /// Windows runner additionally reaps it via a kill-on-close Job Object.
-  void _terminateProcessImmediately() {
+  ///
+  /// An owned child is killed directly; a persisted PID is only killed after
+  /// confirming it still belongs to our engine, so a recycled PID can never
+  /// take down an unrelated process.
+  Future<void> _terminateProcessImmediately() async {
     final process = _aria2Process;
     if (process != null) {
       process.kill();
       return;
     }
     final managedPid = _managedPid;
-    if (managedPid != null) {
+    if (managedPid != null &&
+        await ProcessLifecycleService.instance.isExpectedProcess(
+          managedPid,
+          _aria2cPath!,
+        )) {
       Process.killPid(managedPid);
     }
   }
