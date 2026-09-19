@@ -485,7 +485,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
 
   Widget _buildCurrentTabContent(AppLocalizations l10n) {
     return SizedBox(
-      height: 160,
+      height: 180,
       child: TabBarView(
         controller: _tabController,
         physics: _isSubmitting ? const NeverScrollableScrollPhysics() : null,
@@ -562,20 +562,21 @@ class _AddTaskDialogState extends State<AddTaskDialog>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.file_open, size: 56),
-          const SizedBox(height: 16),
+          const Icon(Icons.file_open, size: 48),
+          const SizedBox(height: 12),
           _TaskDialogButton(
             label: selectButtonText,
             icon: Icons.upload_file,
             onPressed: _isSubmitting ? null : onSelect,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (selectedFilePath != null)
             Text(
               l10n.selectedFile(
                 selectedFilePath.split(Platform.pathSeparator).last,
               ),
               textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
         ],
       ),
@@ -842,7 +843,9 @@ class _AddTaskDialogState extends State<AddTaskDialog>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildCurrentTabContent(l10n),
-                            const Divider(height: 28),
+                            const SizedBox(height: 4),
+                            const Divider(),
+                            const SizedBox(height: 8),
                             if (!_hasAvailableTargets) ...[
                               Container(
                                 width: double.infinity,
@@ -886,9 +889,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
-                            _buildOutputAndSplitFields(l10n),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             DirectoryPicker(
                               initialDirectory: saveLocation,
                               labelText: '',
@@ -909,7 +910,11 @@ class _AddTaskDialogState extends State<AddTaskDialog>
                                 }
                               },
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 4),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            _buildOutputAndSplitFields(l10n),
+                            const SizedBox(height: 4),
                             _buildBasicActions(l10n),
                             _buildAdvancedSection(l10n),
                           ],
