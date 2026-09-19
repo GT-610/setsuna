@@ -11,6 +11,7 @@ import '../../../models/aria2_instance.dart';
 import '../../../services/auto_hide_window_service.dart';
 import '../../../services/protocol_integration_service.dart';
 import '../../../utils/logging.dart';
+import '../../../widgets/synced_tab_controller.dart';
 import '../utils/add_task_options.dart';
 import 'directory_picker.dart';
 
@@ -81,7 +82,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
+    _tabController = SyncedTabController(
       length: 3,
       initialIndex: widget.initialTabIndex,
       vsync: this,

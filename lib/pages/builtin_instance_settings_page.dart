@@ -12,6 +12,7 @@ import '../services/settings_service.dart';
 import '../services/tracker_sync_service.dart';
 import '../utils/logging.dart';
 import '../widgets/sized_loading.dart';
+import '../widgets/synced_tab_controller.dart';
 import 'components/builtin_settings_apply_hint_card.dart';
 import 'components/settings_helpers.dart';
 import 'download_page/components/directory_picker.dart';
@@ -47,7 +48,7 @@ class _BuiltinInstanceSettingsPageState
   bool _isSaving = false;
   bool _isResettingSession = false;
   bool _didInitializeDraft = false;
-  late final TabController _tabController = TabController(
+  late final TabController _tabController = SyncedTabController(
     length: _BuiltinSettingsTab.values.length,
     vsync: this,
   );

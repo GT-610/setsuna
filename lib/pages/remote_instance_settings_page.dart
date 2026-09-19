@@ -5,6 +5,7 @@ import '../models/aria2_instance.dart';
 import '../services/aria2_rpc_client.dart';
 import '../utils/format_utils.dart';
 import '../widgets/sized_loading.dart';
+import '../widgets/synced_tab_controller.dart';
 import 'components/settings_helpers.dart';
 
 class RemoteInstanceSettingsPage extends StatefulWidget {
@@ -37,7 +38,7 @@ class _RemoteInstanceSettingsPageState extends State<RemoteInstanceSettingsPage>
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasLoaded = false;
-  late final TabController _tabController = TabController(
+  late final TabController _tabController = SyncedTabController(
     length: _RemoteSettingsTab.values.length,
     vsync: this,
   );

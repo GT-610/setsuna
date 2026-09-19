@@ -19,25 +19,12 @@ import '../../widgets/app_card.dart';
 import '../../widgets/desktop_page_header.dart';
 import '../../widgets/section_title.dart';
 import '../../widgets/sized_loading.dart';
+import '../../widgets/synced_tab_controller.dart';
 import '../components/file_category_editor_dialog.dart';
 import './components/appearance_dialog.dart';
 import './components/speed_limit_card.dart';
 
 enum _SettingsTab { global, system, about }
-
-class _SettingsTabController extends TabController {
-  _SettingsTabController({required super.length, required super.vsync})
-    : super(animationDuration: const Duration(milliseconds: 677));
-
-  @override
-  void animateTo(int value, {Duration? duration, Curve curve = Curves.ease}) {
-    super.animateTo(
-      value,
-      duration: duration ?? const Duration(milliseconds: 677),
-      curve: Curves.fastLinearToSlowEaseIn,
-    );
-  }
-}
 
 class _SettingsSection {
   const _SettingsSection({required this.title, required this.child});
@@ -63,7 +50,7 @@ class _SettingsPageState extends State<SettingsPage>
   String _versionLabel = '';
   bool _isLoading = true;
   bool _isCheckingForUpdates = false;
-  late final TabController _tabController = _SettingsTabController(
+  late final TabController _tabController = SyncedTabController(
     length: _SettingsTab.values.length,
     vsync: this,
   );

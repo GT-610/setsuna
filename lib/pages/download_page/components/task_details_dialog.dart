@@ -12,6 +12,7 @@ import '../../../services/download_data_service.dart';
 import '../../../services/instance_manager.dart';
 import '../../../utils/format_utils.dart';
 import '../../../utils/logging.dart';
+import '../../../widgets/synced_tab_controller.dart';
 import '../enums.dart';
 import '../models/download_task.dart';
 import '../services/download_task_service.dart';
@@ -199,11 +200,9 @@ class TaskDetailsDialog {
             return PopScope(
               canPop: true,
               onPopInvokedWithResult: (_, _) => disposeResources(),
-              child: DefaultTabController(
-                length: tabs.length,
-                child: Builder(
-                  builder: (tabContext) {
-                    final tabController = DefaultTabController.of(tabContext);
+              child: SyncedTabScope(
+                tabCount: tabs.length,
+                builder: (tabContext, tabController) {
                     currentTabIndex = tabController.index;
 
                     Future<void> fetchPeersIfNeeded({
@@ -966,8 +965,8 @@ class TaskDetailsDialog {
                     );
                   },
                 ),
-              ),
-            );
+              );
+            },
           },
         );
       },
