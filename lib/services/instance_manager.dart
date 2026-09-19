@@ -507,7 +507,14 @@ class InstanceManager extends ChangeNotifier with Loggable {
   }
 
   /// Disconnect instance
-  Future<void> disconnectInstance(Aria2Instance instance) async {
+  ///
+  /// When [fast] is true the built-in engine is stopped with the fast-exit
+  /// path (save session best-effort, then terminate immediately) so
+  /// application shutdown is not blocked by a graceful engine drain.
+  Future<void> disconnectInstance(
+    Aria2Instance instance, {
+    bool fast = false,
+  }) async {
     final connectionOperation = _connectionOperations[instance.id];
     if (connectionOperation != null) {
       await connectionOperation;
@@ -517,7 +524,7 @@ class InstanceManager extends ChangeNotifier with Loggable {
       i(
         'Stopping built-in Aria2 process while disconnecting the built-in instance',
       );
-      await _builtinInstanceService.stopInstance();
+      await _builtinInstanceService.stopInstance(fast: fast);
     }
 
     // Update instance status to disconnected

@@ -23,6 +23,11 @@ enum BuiltinInstanceApplyMode { none, liveApply, restartRequired }
 class BuiltinInstanceService with Loggable {
   static const Duration _rpcShutdownTimeout = Duration(seconds: 5);
 
+  /// Upper bound for the best-effort session save performed during a fast
+  /// application exit. Kept short so quitting the app stays responsive even
+  /// when the engine's RPC endpoint is unresponsive.
+  static const Duration _rpcFastExitTimeout = Duration(seconds: 1);
+
   /// Set when the engine recovered from an RPC port conflict by moving to a
   /// different port. The UI surfaces the message once and clears it.
   static final ValueNotifier<String?> portRecoveryNotice =
@@ -757,9 +762,18 @@ class BuiltinInstanceService with Loggable {
     }
   }
 
-  Future<bool> stopInstance() => _serializeLifecycle(_stopInstance);
+  /// Stops the built-in Aria2 instance.
+  ///
+  /// When [fast] is true the stop is optimized for application shutdown:
+  /// the session is persisted best-effort (bounded by
+  /// [_rpcFastExitTimeout]) and the engine process is terminated
+  /// immediately, skipping the graceful RPC shutdown and the multi-second
+  /// exit-code waits. Mirrors the "fast exit" path used by Motrix
+  /// Next/Rayburst, so quitting the app never blocks on a draining engine.
+  Future<bool> stopInstance({bool fast = false}) =>
+      _serializeLifecycle(() => _stopInstance(fast: fast));
 
-  Future<bool> _stopInstance() async {
+  Future<bool> _stopInstance({required bool fast}) async {
     try {
       if (_aria2Process == null && !await _adoptPersistedProcess()) {
         if (await _isRpcReachable()) {
@@ -771,6 +785,17 @@ class BuiltinInstanceService with Loggable {
         }
         w('Built-in Aria2 process is not running');
         await _clearManagedProcessState();
+        return true;
+      }
+
+      if (fast) {
+        // Application exit: persist the session best-effort, then terminate
+        // the engine right away instead of waiting for a graceful shutdown.
+        await _saveSessionForFastExit();
+        _terminateProcessImmediately();
+        await _clearManagedProcessState();
+        await _cancelProcessOutput();
+        unawaited(_upnpService.shutdown());
         return true;
       }
 
@@ -815,6 +840,38 @@ class BuiltinInstanceService with Loggable {
         stackTrace: stackTrace,
       );
       return false;
+    }
+  }
+
+  /// Persists the engine session during a fast exit, tolerating any failure
+  /// (the process is terminated regardless of the outcome).
+  Future<void> _saveSessionForFastExit() async {
+    final client = Aria2RpcClient(getBuiltinInstanceConfig());
+    try {
+      await client.saveSession().timeout(_rpcFastExitTimeout);
+    } catch (e, stackTrace) {
+      w(
+        'Failed to save the built-in Aria2 session during fast exit; '
+        'terminating the process anyway',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      await client.close();
+    }
+  }
+
+  /// Terminates the engine process without waiting for it to exit. The
+  /// Windows runner additionally reaps it via a kill-on-close Job Object.
+  void _terminateProcessImmediately() {
+    final process = _aria2Process;
+    if (process != null) {
+      process.kill();
+      return;
+    }
+    final managedPid = _managedPid;
+    if (managedPid != null) {
+      Process.killPid(managedPid);
     }
   }
 

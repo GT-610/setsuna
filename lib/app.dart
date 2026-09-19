@@ -557,10 +557,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     try {
       final builtinInstance = instanceManager.getBuiltinInstance();
       if (builtinInstance != null) {
-        // Disconnect without awaiting – the built-in aria2 process may take
-        // several seconds to shut down (RPC shutdown + exit-code waits).
-        // Fire-and-forget lets the window close instantly.
-        unawaited(instanceManager.disconnectInstance(builtinInstance));
+        // Fast exit: persist the session best-effort and terminate the engine
+        // immediately instead of waiting for a graceful shutdown (RPC
+        // shutdown + multi-second exit-code waits). Keeps quitting responsive
+        // while still flushing download state.
+        await instanceManager.disconnectInstance(builtinInstance, fast: true);
       }
     } catch (e, stackTrace) {
       this.e(
