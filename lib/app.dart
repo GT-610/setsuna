@@ -557,7 +557,10 @@ class _MainWindowState extends State<MainWindow> with WindowListener, Loggable {
     try {
       final builtinInstance = instanceManager.getBuiltinInstance();
       if (builtinInstance != null) {
-        await instanceManager.disconnectInstance(builtinInstance);
+        // Disconnect without awaiting – the built-in aria2 process may take
+        // several seconds to shut down (RPC shutdown + exit-code waits).
+        // Fire-and-forget lets the window close instantly.
+        unawaited(instanceManager.disconnectInstance(builtinInstance));
       }
     } catch (e, stackTrace) {
       this.e(
