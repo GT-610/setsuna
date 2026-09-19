@@ -873,7 +873,9 @@ class BuiltinInstanceService with Loggable {
   ///
   /// An owned child is killed directly; a persisted PID is only killed after
   /// confirming it still belongs to our engine, so a recycled PID can never
-  /// take down an unrelated process.
+  /// take down an unrelated process. That validation is bounded by
+  /// [_rpcFastExitTimeout]: if it does not answer in time the PID is left
+  /// alone and cleanup continues, rather than blocking application exit.
   Future<void> _terminateProcessImmediately() async {
     final process = _aria2Process;
     if (process != null) {
@@ -881,11 +883,22 @@ class BuiltinInstanceService with Loggable {
       return;
     }
     final managedPid = _managedPid;
-    if (managedPid != null &&
-        await ProcessLifecycleService.instance.isExpectedProcess(
-          managedPid,
-          _aria2cPath!,
-        )) {
+    if (managedPid == null) {
+      return;
+    }
+    final bool isExpected;
+    try {
+      isExpected = await ProcessLifecycleService.instance
+          .isExpectedProcess(managedPid, _aria2cPath!)
+          .timeout(_rpcFastExitTimeout);
+    } on TimeoutException {
+      w(
+        'Timed out validating the persisted aria2 PID during fast exit; '
+        'leaving it for OS cleanup',
+      );
+      return;
+    }
+    if (isExpected) {
       Process.killPid(managedPid);
     }
   }
