@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:setsuna/generated/l10n/l10n.dart';
 import 'package:setsuna/models/aria2_instance.dart';
@@ -14,6 +17,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final submitted = <String>[];
     var fail = true;
+    Completer<bool>? pending;
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -41,6 +45,7 @@ void main() {
                   onAddTask:
                       (type, uri, dir, content, target, options, show) async {
                         submitted.add(uri);
+                        if (pending != null) return pending.future;
                         return !(fail && uri.endsWith('/b'));
                       },
                 ),
@@ -58,7 +63,17 @@ void main() {
     expect(submitted, ['https://example.com/a', 'https://example.com/b']);
     expect(find.byType(AddTaskDialog), findsOneWidget);
     fail = false;
+    pending = Completer<bool>();
     await tester.tap(find.widgetWithText(FilledButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskDialog), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(AddTaskDialog), findsOneWidget);
+    pending.complete(true);
+    pending = null;
     await tester.pumpAndSettle();
     expect(submitted, [
       'https://example.com/a',

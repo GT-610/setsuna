@@ -479,7 +479,10 @@ class _AddTaskDialogState extends State<AddTaskDialog>
           uriController.text = inputs.skip(index + 1).join('\n');
         }
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        Navigator.pop(context);
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -810,7 +813,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
         .clamp(360.0, 760.0)
         .toDouble();
 
-    return CallbackShortcuts(
+    final dialog = CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
           unawaited(_submitCurrentTab());
@@ -951,6 +954,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
         ),
       ),
     );
+    return PopScope(canPop: !_isSubmitting, child: dialog);
   }
 }
 
