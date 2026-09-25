@@ -676,5 +676,9 @@
   "optionsActiveOnlyHint": "Only a subset of options can be changed while the task is active.",
   "english": "English",
   "chinese": "Chinese",
-  "trackerListInputHint": "Enter tracker URLs, one per line or separated by commas"
+  "trackerListInputHint": "Enter tracker URLs, one per line or separated by commas",
+  "generateRpcSecret": "Generate random secret",
+  "copyRpcSecret": "Copy secret",
+  "rpcSecretCopied": "RPC secret copied",
+  "rpcSecretCopyFailed": "Failed to copy RPC secret"
 }

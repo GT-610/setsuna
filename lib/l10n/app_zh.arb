@@ -676,5 +676,9 @@
   "optionsActiveOnlyHint": "任务进行中仅可修改部分选项。",
   "english": "English",
   "chinese": "中文",
-  "trackerListInputHint": "\u8f93\u5165 Tracker \u5730\u5740\uff0c\u652f\u6301\u591a\u884c\u6216\u9017\u53f7\u5206\u9694"
+  "trackerListInputHint": "\u8f93\u5165 Tracker \u5730\u5740\uff0c\u652f\u6301\u591a\u884c\u6216\u9017\u53f7\u5206\u9694",
+  "generateRpcSecret": "\u968f\u673a\u751f\u6210\u5bc6\u94a5",
+  "copyRpcSecret": "\u590d\u5236\u5bc6\u94a5",
+  "rpcSecretCopied": "RPC \u5bc6\u94a5\u5df2\u590d\u5236",
+  "rpcSecretCopyFailed": "\u590d\u5236 RPC \u5bc6\u94a5\u5931\u8d25"
 }

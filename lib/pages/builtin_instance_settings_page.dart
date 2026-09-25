@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../generated/l10n/l10n.dart';
@@ -347,6 +350,28 @@ class _BuiltinInstanceSettingsPageState
               obscureText: true,
               helperText: l10n.leaveEmptyToDisableSecretAuth,
               controller: _rpcSecretController,
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l10n.generateRpcSecret,
+                    icon: const Icon(Icons.casino_outlined),
+                    onPressed: () {
+                      final random = Random.secure();
+                      final secret = base64UrlEncode(
+                        List<int>.generate(32, (_) => random.nextInt(256)),
+                      );
+                      _rpcSecretController.text = secret;
+                      _updateDraft(() => _rpcSecret = secret);
+                    },
+                  ),
+                  IconButton(
+                    tooltip: l10n.copyRpcSecret,
+                    icon: const Icon(Icons.copy_outlined),
+                    onPressed: _rpcSecret.isEmpty ? null : _copyRpcSecret,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -878,6 +903,7 @@ class _BuiltinInstanceSettingsPageState
     TextEditingController? controller,
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
+    Widget? suffixIcon,
     String helperText = '',
     int maxLines = 1,
     bool enabled = true,
@@ -899,6 +925,7 @@ class _BuiltinInstanceSettingsPageState
           obscureText: obscureText,
           maxLines: maxLines,
           decoration: InputDecoration(
+            suffixIcon: suffixIcon,
             helperText: helperText,
             helperStyle: _settingHintStyle(theme),
             filled: true,
@@ -947,6 +974,17 @@ class _BuiltinInstanceSettingsPageState
       ),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     );
+  }
+
+  Future<void> _copyRpcSecret() async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      await Clipboard.setData(ClipboardData(text: _rpcSecretController.text));
+      _showSettingsSnackBar(l10n.rpcSecretCopied);
+    } catch (error, stackTrace) {
+      _logger.e('Failed to copy RPC secret', stackTrace: stackTrace);
+      _showSettingsSnackBar(l10n.rpcSecretCopyFailed);
+    }
   }
 
   Future<void> _syncTrackerList() async {

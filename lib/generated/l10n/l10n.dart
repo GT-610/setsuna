@@ -3318,6 +3318,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter tracker URLs, one per line or separated by commas'**
   String get trackerListInputHint;
+
+  /// No description provided for @generateRpcSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate random secret'**
+  String get generateRpcSecret;
+
+  /// No description provided for @copyRpcSecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy secret'**
+  String get copyRpcSecret;
+
+  /// No description provided for @rpcSecretCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'RPC secret copied'**
+  String get rpcSecretCopied;
+
+  /// No description provided for @rpcSecretCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to copy RPC secret'**
+  String get rpcSecretCopyFailed;
 }
 
 class _AppLocalizationsDelegate

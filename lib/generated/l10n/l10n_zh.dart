@@ -1772,4 +1772,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trackerListInputHint => '输入 Tracker 地址，支持多行或逗号分隔';
+
+  @override
+  String get generateRpcSecret => '随机生成密钥';
+
+  @override
+  String get copyRpcSecret => '复制密钥';
+
+  @override
+  String get rpcSecretCopied => 'RPC 密钥已复制';
+
+  @override
+  String get rpcSecretCopyFailed => '复制 RPC 密钥失败';
 }
