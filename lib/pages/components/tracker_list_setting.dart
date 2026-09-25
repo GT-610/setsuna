@@ -9,8 +9,10 @@ class TrackerListSetting extends StatefulWidget {
     required this.title,
     required this.controller,
     this.onChanged,
+    this.enabled = true,
   });
 
+  final bool enabled;
   final String title;
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
@@ -73,7 +75,9 @@ class _TrackerListSettingState extends State<TrackerListSetting> {
                     trailing: IconButton(
                       tooltip: l10n.delete,
                       icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () => _update([...entries]..removeAt(index)),
+                      onPressed: widget.enabled
+                          ? () => _update([...entries]..removeAt(index))
+                          : null,
                     ),
                   ),
                 ),
@@ -86,6 +90,7 @@ class _TrackerListSettingState extends State<TrackerListSetting> {
               Expanded(
                 child: TextField(
                   controller: _input,
+                  enabled: widget.enabled,
                   minLines: 1,
                   maxLines: 3,
                   decoration: InputDecoration(
@@ -94,7 +99,7 @@ class _TrackerListSettingState extends State<TrackerListSetting> {
                 ),
               ),
               IconButton(
-                onPressed: _add,
+                onPressed: widget.enabled ? _add : null,
                 tooltip: l10n.add,
                 icon: const Icon(Icons.add),
               ),

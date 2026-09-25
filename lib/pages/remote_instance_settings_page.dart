@@ -660,10 +660,12 @@ class _RemoteInstanceSettingsPageState extends State<RemoteInstanceSettingsPage>
               (value) => setState(() => _enableDht6 = value),
             ),
             TrackerListSetting(
+              enabled: !_isSaving,
               title: l10n.btTrackerServers,
               controller: _trackerController,
             ),
             TrackerListSetting(
+              enabled: !_isSaving,
               title: l10n.excludedTrackers,
               controller: _excludedTrackerController,
             ),
