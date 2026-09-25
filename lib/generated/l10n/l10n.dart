@@ -3312,6 +3312,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Chinese'**
   String get chinese;
+
+  /// No description provided for @trackerListInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter tracker URLs, one per line or separated by commas'**
+  String get trackerListInputHint;
 }
 
 class _AppLocalizationsDelegate

@@ -15,6 +15,7 @@ import '../widgets/sized_loading.dart';
 import '../widgets/synced_tab_controller.dart';
 import 'components/builtin_settings_apply_hint_card.dart';
 import 'components/settings_helpers.dart';
+import 'components/tracker_list_setting.dart';
 import 'download_page/components/directory_picker.dart';
 
 class BuiltinInstanceSettingsPage extends StatefulWidget {
@@ -490,25 +491,16 @@ class _BuiltinInstanceSettingsPageState
             ) {
               _updateDraft(() => _autoSyncTracker = value);
             }),
-            _buildTextFieldSetting(
-              l10n.btTrackerServers,
-              _btTracker,
-              (value) {
-                _updateDraft(() => _btTracker = value.trim());
-              },
-              helperText: l10n.btTrackerServersTip,
-              maxLines: 4,
+            TrackerListSetting(
+              title: l10n.btTrackerServers,
               controller: _trackerServersController,
+              onChanged: (value) => _updateDraft(() => _btTracker = value),
             ),
-            _buildTextFieldSetting(
-              l10n.excludedTrackers,
-              _btExcludeTracker,
-              (value) {
-                _updateDraft(() => _btExcludeTracker = value);
-              },
-              helperText: l10n.trackersTip,
-              maxLines: 2,
+            TrackerListSetting(
+              title: l10n.excludedTrackers,
               controller: _excludedTrackersController,
+              onChanged: (value) =>
+                  _updateDraft(() => _btExcludeTracker = value),
             ),
           ],
         ),

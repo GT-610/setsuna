@@ -675,5 +675,6 @@
   "optionsSaved": "Options saved",
   "optionsActiveOnlyHint": "Only a subset of options can be changed while the task is active.",
   "english": "English",
-  "chinese": "Chinese"
+  "chinese": "Chinese",
+  "trackerListInputHint": "Enter tracker URLs, one per line or separated by commas"
 }

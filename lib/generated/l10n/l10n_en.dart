@@ -1850,4 +1850,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chinese => 'Chinese';
+
+  @override
+  String get trackerListInputHint =>
+      'Enter tracker URLs, one per line or separated by commas';
 }

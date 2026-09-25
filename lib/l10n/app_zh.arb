@@ -675,5 +675,6 @@
   "optionsSaved": "选项已保存",
   "optionsActiveOnlyHint": "任务进行中仅可修改部分选项。",
   "english": "English",
-  "chinese": "中文"
+  "chinese": "中文",
+  "trackerListInputHint": "\u8f93\u5165 Tracker \u5730\u5740\uff0c\u652f\u6301\u591a\u884c\u6216\u9017\u53f7\u5206\u9694"
 }

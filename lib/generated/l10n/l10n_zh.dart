@@ -1769,4 +1769,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chinese => '中文';
+
+  @override
+  String get trackerListInputHint => '输入 Tracker 地址，支持多行或逗号分隔';
 }
