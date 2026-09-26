@@ -952,15 +952,8 @@ class DownloadPageState extends State<DownloadPage>
 
                   switch (taskType) {
                     case 'uri':
-                      final uris = uri
-                          .split('\n')
-                          .map((u) => u.trim())
-                          .where((u) => u.isNotEmpty)
-                          .toList();
-                      if (uris.isEmpty) {
-                        return false;
-                      }
-                      final gid = await client.addUri(uris, options);
+                      if (uri.trim().isEmpty) return false;
+                      final gid = await client.addUri([uri.trim()], options);
                       if (options[pauseMetadataOptionKey] == 'true' &&
                           pageContext.mounted) {
                         unawaited(

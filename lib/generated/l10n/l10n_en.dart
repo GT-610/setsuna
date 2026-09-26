@@ -1850,4 +1850,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chinese => 'Chinese';
+
+  @override
+  String get trackerListInputHint =>
+      'Enter tracker URLs, one per line or separated by commas';
+
+  @override
+  String get generateRpcSecret => 'Generate random secret';
+
+  @override
+  String get copyRpcSecret => 'Copy secret';
+
+  @override
+  String get rpcSecretCopied => 'RPC secret copied';
+
+  @override
+  String get rpcSecretCopyFailed => 'Failed to copy RPC secret';
 }

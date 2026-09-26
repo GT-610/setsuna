@@ -408,17 +408,6 @@ class _AddTaskDialogState extends State<AddTaskDialog>
     if (taskOptions == null) {
       return;
     }
-    final hasMagnetUri = uri
-        .split(RegExp(r'[\r\n]+'))
-        .map((line) => line.trim().toLowerCase())
-        .any((line) => line.startsWith('magnet:?'));
-    if (taskType == 'uri' && selectFilesAfterMetadata && hasMagnetUri) {
-      // aria2 pauses the download once metadata is fetched; the flow in
-      // MagnetFileSelectionFlow then opens a file picker and resumes.
-      taskOptions[pauseMetadataOptionKey] = 'true';
-      taskOptions['bt-save-metadata'] = 'true';
-    }
-
     if (taskType == 'uri' && uri.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -459,17 +448,39 @@ class _AddTaskDialogState extends State<AddTaskDialog>
         fileContent = base64Encode(await file.readAsBytes());
       }
 
-      final added = await widget.onAddTask(
-        taskType,
-        uri,
-        downloadDir,
-        fileContent,
-        targetInstanceId,
-        taskOptions,
-        showDownloadsAfterAdd,
-      );
-
-      if (added && mounted) {
+      final inputs = taskType == 'uri'
+          ? uri
+                .split(RegExp(r'[\r\n]+'))
+                .map((line) => line.trim())
+                .where((line) => line.isNotEmpty)
+                .toList()
+          : [uri];
+      for (var index = 0; index < inputs.length; index++) {
+        final options = <String, dynamic>{...taskOptions};
+        if (taskType == 'uri' &&
+            selectFilesAfterMetadata &&
+            inputs[index].toLowerCase().startsWith('magnet:?')) {
+          options[pauseMetadataOptionKey] = 'true';
+          options['bt-save-metadata'] = 'true';
+        }
+        final added = await widget.onAddTask(
+          taskType,
+          inputs[index],
+          downloadDir,
+          fileContent,
+          targetInstanceId,
+          options,
+          showDownloadsAfterAdd,
+        );
+        if (!mounted) return;
+        if (!added) return;
+        if (taskType == 'uri') {
+          // Keep only unsubmitted links so retrying cannot duplicate successes.
+          uriController.text = inputs.skip(index + 1).join('\n');
+        }
+      }
+      if (mounted) {
+        setState(() => _isSubmitting = false);
         Navigator.pop(context);
       }
     } finally {
@@ -802,7 +813,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
         .clamp(360.0, 760.0)
         .toDouble();
 
-    return CallbackShortcuts(
+    final dialog = CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
           unawaited(_submitCurrentTab());
@@ -943,6 +954,7 @@ class _AddTaskDialogState extends State<AddTaskDialog>
         ),
       ),
     );
+    return PopScope(canPop: !_isSubmitting, child: dialog);
   }
 }
 

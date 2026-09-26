@@ -7,6 +7,7 @@ import '../utils/format_utils.dart';
 import '../widgets/sized_loading.dart';
 import '../widgets/synced_tab_controller.dart';
 import 'components/settings_helpers.dart';
+import 'components/tracker_list_setting.dart';
 
 class RemoteInstanceSettingsPage extends StatefulWidget {
   final Aria2Instance instance;
@@ -658,17 +659,15 @@ class _RemoteInstanceSettingsPageState extends State<RemoteInstanceSettingsPage>
               _enableDht6,
               (value) => setState(() => _enableDht6 = value),
             ),
-            _buildTextFieldSetting(
-              l10n.btTrackerServers,
+            TrackerListSetting(
+              enabled: !_isSaving,
+              title: l10n.btTrackerServers,
               controller: _trackerController,
-              helperText: l10n.btTrackerServersTip,
-              maxLines: 4,
             ),
-            _buildTextFieldSetting(
-              l10n.excludedTrackers,
+            TrackerListSetting(
+              enabled: !_isSaving,
+              title: l10n.excludedTrackers,
               controller: _excludedTrackerController,
-              helperText: l10n.trackersTip,
-              maxLines: 2,
             ),
           ],
         ),
