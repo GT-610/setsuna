@@ -47,10 +47,26 @@ class _DirectoryPickerState extends State<DirectoryPicker> with Loggable {
   @override
   void didUpdateWidget(covariant DirectoryPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialDirectory != widget.initialDirectory &&
-        _directoryController.text != widget.initialDirectory) {
-      _directoryController.text = widget.initialDirectory;
+    if (oldWidget.initialDirectory != widget.initialDirectory) {
+      _setDirectoryText(widget.initialDirectory);
     }
+  }
+
+  /// Replaces the field text while keeping a valid caret position.
+  ///
+  /// The `text` setter resets the selection to an invalid range, which the
+  /// focused single-line field then repairs by selecting all of its content.
+  /// Writing `value` with an explicit collapsed caret avoids that, and the
+  /// equality guard keeps self-inflicted writes from disturbing the selection
+  /// the user is editing with.
+  void _setDirectoryText(String newDirectory) {
+    if (_directoryController.text == newDirectory) {
+      return;
+    }
+    _directoryController.value = TextEditingValue(
+      text: newDirectory,
+      selection: TextSelection.collapsed(offset: newDirectory.length),
+    );
   }
 
   Future<void> _selectDirectory() async {
@@ -84,7 +100,9 @@ class _DirectoryPickerState extends State<DirectoryPicker> with Loggable {
   }
 
   void _updateDirectory(String newDirectory) {
-    _directoryController.text = newDirectory;
+    // The field already holds this text when the user is typing, so only
+    // external updates (e.g. a picked directory) need to touch the controller.
+    _setDirectoryText(newDirectory);
     widget.onDirectoryChanged(newDirectory);
   }
 
